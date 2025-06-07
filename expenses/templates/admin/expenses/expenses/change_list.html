@@ -1,0 +1,69 @@
+{% extends "admin/change_list.html" %}
+{% load static %}
+
+{% block extrastyle %}
+{{ block.super }}
+<style>
+    .expense-summary {
+        display: flex;
+        gap: 2rem;
+        margin-top: 2rem;
+        padding: 1rem;
+        background: #f8f9fa;
+        border-radius: 8px;
+    }
+
+    .expense-category-summary {
+        flex: 1;
+        padding: 1rem;
+        background: white;
+        border-radius: 6px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+
+    .expense-category-summary h3 {
+        margin-top: 0;
+        color: #666;
+        font-size: 1.1em;
+        border-bottom: 2px solid #eee;
+        padding-bottom: 0.5rem;
+    }
+
+    .total-amount {
+        font-size: 1.5em;
+        font-weight: bold;
+        color: #2c3e50;
+    }
+
+    .expense-category-summary p {
+        margin: 0.5rem 0;
+        color: #444;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+{{ block.super }}
+{% if totales %}
+<div class="expense-summary">
+    <div class="expense-category-summary">
+        <h3>Total General</h3>
+        <p class="total-amount">{{ totales.total }}</p>
+    </div>
+    
+    <div class="expense-category-summary">
+        <h3>Últimos 3 Meses</h3>
+        {% for mes in totales.por_mes %}
+            <p>{{ mes.mes|date:"F Y" }}: {{ mes.total }}</p>
+        {% endfor %}
+    </div>
+    
+    <div class="expense-category-summary">
+        <h3>Por Tipo de Gasto</h3>
+        {% for categoria in totales.por_categoria %}
+            <p>{{ categoria.nombre }}: {{ categoria.total }}</p>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+{% endblock %}
