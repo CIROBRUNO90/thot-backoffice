@@ -35,7 +35,7 @@ DEBUG = str(env("DEBUG", False)).lower() in ["true"]
 CSRF_TRUSTED_ORIGINS = [
     'https://thot-back-production.up.railway.app',
     'http://thot-back-production.up.railway.app',
-    'https://thot-backoffice.up.railway.app',
+    'https://thot-backoffice-production.up.railway.app',
 ]
 
 ALLOWED_HOSTS = ['*']
