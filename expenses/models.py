@@ -39,6 +39,7 @@ class Expenses(TimestampsMixin):
         verbose_name=_('Tipo de gasto'),
         help_text=_('Categoría o tipo de gasto realizado'),
         null=True,
+        blank=True
     )
 
     amount = models.DecimalField(
@@ -66,4 +67,6 @@ class Expenses(TimestampsMixin):
         ordering = ['-date']
 
     def __str__(self):
-        return f"{self.expense_type.name} - {self.date} - ${self.amount}"
+        if self.expense_type:
+            return f"{self.expense_type.name} - {self.date} - ${self.amount}"
+        return f"Sin tipo - {self.date} - ${self.amount}"

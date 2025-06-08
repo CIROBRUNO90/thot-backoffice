@@ -11,7 +11,12 @@ class Income(models.Model):
     """
     # Información de la orden
     order_number = models.CharField(_('Número de orden'), max_length=30)
-    email = models.EmailField(_('Email'), max_length=255)
+    email = models.EmailField(
+        _('Email'),
+        max_length=255,
+        blank=True,
+        null=True
+    )
     date = models.DateField(_('Fecha'))
     order_status = models.CharField(
         _('Estado de la orden'),
@@ -31,13 +36,20 @@ class Income(models.Model):
         choices=ShippingStatus.choices,
         default=ShippingStatus.NOT_PACKAGED
     )
-    currency = models.CharField(_('Moneda'), max_length=3)
+    currency = models.CharField(
+        _('Moneda'),
+        max_length=3,
+        blank=True,
+        null=True,
+        default='ARS'
+    )
 
     # Información financiera
     product_subtotal = models.DecimalField(
         _('Subtotal de productos'),
         max_digits=12,
-        decimal_places=2
+        decimal_places=2,
+        default=0
     )
     discount = models.DecimalField(
         _('Descuento'),
@@ -51,10 +63,18 @@ class Income(models.Model):
         decimal_places=2,
         default=0
     )
-    total = models.DecimalField(_('Total'), max_digits=12, decimal_places=2)
+    total = models.DecimalField(
+        _('Total'),
+        max_digits=12,
+        decimal_places=2,
+        default=0
+    )
 
     # Información del comprador
-    buyer_name = models.CharField(_('Nombre del comprador'), max_length=255)
+    buyer_name = models.CharField(
+        _('Nombre del comprador'),
+        max_length=255
+    )
     tax_id = models.CharField(
         _('DNI / CUIT'),
         max_length=20,
@@ -105,7 +125,12 @@ class Income(models.Model):
         blank=True,
         null=True
     )
-    city = models.CharField(_('Ciudad'), max_length=100, blank=True, null=True)
+    city = models.CharField(
+        _('Ciudad'),
+        max_length=100,
+        blank=True,
+        null=True
+    )
     postal_code = models.CharField(
         _('Código postal'),
         max_length=20,
@@ -170,9 +195,13 @@ class Income(models.Model):
     product_price = models.DecimalField(
         _('Precio del producto'),
         max_digits=12,
-        decimal_places=2
+        decimal_places=2,
+        default=0
     )
-    product_quantity = models.PositiveIntegerField(_('Cantidad del producto'))
+    product_quantity = models.PositiveIntegerField(
+        _('Cantidad del producto'),
+        default=1
+    )
     sku = models.CharField(_('SKU'), max_length=50, blank=True, null=True)
 
     # Información adicional
