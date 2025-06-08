@@ -7,7 +7,7 @@ services:
     ports:
       - "9009:9009"
     networks :
-      - vlore
+      - thot
     # depends_on:
     #   - db
 
@@ -22,10 +22,10 @@ services:
   #   ports:
   #     - "5432:5432"
   #   networks :
-  #     - vlore
+  #     - thot
 
 networks :
-  vlore :
+  thot :
     driver : bridge
 # volumes:
 #   postgres_data:

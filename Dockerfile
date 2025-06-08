@@ -21,9 +21,9 @@ COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 COPY start-container.sh /usr/local/bin/start-container.sh
 RUN chmod +x /usr/local/bin/start-container.sh
 
-COPY vlore.ini /app/vlore.ini
-RUN chown www-data:www-data /app/vlore.ini && \
-    chmod 644 /app/vlore.ini
+COPY thot.ini /app/thot.ini
+RUN chown www-data:www-data /app/thot.ini && \
+    chmod 644 /app/thot.ini
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt

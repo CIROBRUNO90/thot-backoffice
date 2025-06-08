@@ -1,7 +1,7 @@
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 
-from vlore_back.models import TimestampsMixin
+from thot.models import TimestampsMixin
 
 
 class ExpenseType(TimestampsMixin):
