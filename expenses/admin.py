@@ -193,11 +193,3 @@ class ExpensesAdmin(admin.ModelAdmin):
                 }
 
         return response
-
-    class Media:
-        """
-        Añadimos estilos personalizados para mejorar la visualización
-        """
-        css = {
-            'all': ('admin/css/custom_admin.css',)
-        }
