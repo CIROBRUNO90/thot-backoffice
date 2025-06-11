@@ -201,7 +201,7 @@ class ExpensesAdmin(admin.ModelAdmin):
                     ],
                     'por_unidad': [
                         {
-                            'nombre': unit['business_unit__name'],
+                            'nombre': unit['business_unit__name'] if unit['business_unit__name'] else 'Sin unidad',
                             'total': format_amount(unit['total'])
                         }
                         for unit in queryset.values(
