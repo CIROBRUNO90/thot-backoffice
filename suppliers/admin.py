@@ -8,17 +8,19 @@ from .models import Supplier
 @admin.register(Supplier)
 class SupplierAdmin(admin.ModelAdmin):
     list_display = [
+        'business_unit_display',
         'business_name',
         'tax_id',
-        'contact_info_display',  # Método personalizado para mostrar información de contacto
-        'location_display',      # Método personalizado para mostrar ubicación
-        'status_display',        # Método personalizado para mostrar estado
+        'contact_info_display',
+        'location_display',
+        'status_display',
         'created_at'
     ]
 
     fieldsets = (
         ('Información Principal', {
             'fields': (
+                'business_unit',
                 'business_name',
                 'commercial_name',
                 'tax_id',
@@ -44,7 +46,7 @@ class SupplierAdmin(admin.ModelAdmin):
                 'bank_name',
                 'bank_cbu_alias'
             ),
-            'classes': ('collapse',),  # Esta sección será colapsable
+            'classes': ('collapse',),
             'description': 'Información confidencial para pagos'
         }),
         ('Información Adicional', {
@@ -55,17 +57,19 @@ class SupplierAdmin(admin.ModelAdmin):
         })
     )
 
-    # Configuramos los campos por los que se puede buscar
     search_fields = [
         'business_name',
         'commercial_name',
         'tax_id',
         'contact_person',
-        'email'
+        'email',
+        'business_unit__name',
+        'business_unit__customer__name'
     ]
 
-    # Configuramos los filtros que aparecerán en la barra lateral
     list_filter = [
+        'business_unit__customer',
+        'business_unit',
         'is_active',
         'country',
         'city',
@@ -74,6 +78,20 @@ class SupplierAdmin(admin.ModelAdmin):
 
     readonly_fields = ['created_at', 'updated_at']
     list_per_page = 20
+
+    def business_unit_display(self, obj):
+        """
+        Muestra la unidad de negocio con formato especial
+        """
+        return format_html(
+            '<div style="line-height: 1.5;">'
+            '<span style="color: #666;">{}</span><br>'
+            '<strong style="color: #2c3e50;">{}</strong>'
+            '</div>',
+            obj.business_unit.customer.name,
+            obj.business_unit.name
+        )
+    business_unit_display.short_description = 'Unidad de Negocio'
 
     def contact_info_display(self, obj):
         """
@@ -108,7 +126,8 @@ class SupplierAdmin(admin.ModelAdmin):
         Muestra el estado del proveedor con un indicador visual
         """
         return format_html(
-            '<span style="background-color: {}; padding: 3px 10px; border-radius: 3px; color: white;">{}</span>',
+            '<span style="background-color: {}; padding: 3px 10px; '
+            'border-radius: 3px; color: white;">{}</span>',
             '#28a745' if obj.is_active else '#dc3545',
             'Activo' if obj.is_active else 'Inactivo'
         )

@@ -2,6 +2,7 @@ from django.db import models
 from django.utils.translation import gettext_lazy as _
 
 from thot.models import TimestampsMixin
+from tenant.models import BusinessUnit
 
 
 class ExpenseType(TimestampsMixin):
@@ -31,6 +32,16 @@ class Expenses(TimestampsMixin):
     date = models.DateField(
         verbose_name=_('Fecha del gasto'),
         help_text=_('Fecha en que se realizó el gasto')
+    )
+
+    business_unit = models.ForeignKey(
+        BusinessUnit,
+        on_delete=models.PROTECT,
+        verbose_name=_('Unidad de Negocio'),
+        help_text=_('Unidad de negocio a la que pertenece el gasto'),
+        related_name='expenses',
+        null=True,
+        blank=True
     )
 
     expense_type = models.ForeignKey(
@@ -67,6 +78,11 @@ class Expenses(TimestampsMixin):
         ordering = ['-date']
 
     def __str__(self):
-        if self.expense_type:
-            return f"{self.expense_type.name} - {self.date} - ${self.amount}"
-        return f"Sin tipo - {self.date} - ${self.amount}"
+        if self.business_unit and self.expense_type:
+            return f"{self.business_unit.name} - {self.expense_type.name} - {self.date} - ${self.amount}"
+        elif self.business_unit:
+            return f"{self.business_unit.name} - Sin tipo - {self.date} - ${self.amount}"
+        elif self.expense_type:
+            return f"Sin unidad - {self.expense_type.name} - {self.date} - ${self.amount}"
+        else:
+            return f"Sin unidad - Sin tipo - {self.date} - ${self.amount}"
