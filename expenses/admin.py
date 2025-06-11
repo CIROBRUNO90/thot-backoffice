@@ -24,6 +24,7 @@ class ExpenseTypeAdmin(admin.ModelAdmin):
 class ExpensesAdmin(admin.ModelAdmin):
     list_display = [
         'date',
+        'business_unit_display',
         'expense_type_display',
         'amount_display',
         'observations',
@@ -32,6 +33,8 @@ class ExpensesAdmin(admin.ModelAdmin):
 
     list_filter = [
         ('date', DateRangeFilter),
+        'business_unit',
+        'business_unit__customer',
         'expense_type',
         'is_fixed'
     ]
@@ -39,12 +42,14 @@ class ExpensesAdmin(admin.ModelAdmin):
     search_fields = [
         'observations',
         'expense_type__name',
-        'expense_type__code'
+        'expense_type__code',
+        'business_unit__name',
+        'business_unit__customer__name'
     ]
 
     fieldsets = (
         ('Información Principal', {
-            'fields': ('date', 'expense_type', 'amount', 'is_fixed')
+            'fields': ('date', 'business_unit', 'expense_type', 'amount', 'is_fixed')
         }),
         ('Detalles Adicionales', {
             'fields': ('observations',),
@@ -54,6 +59,20 @@ class ExpensesAdmin(admin.ModelAdmin):
 
     ordering = ['-date']
     list_per_page = 20
+
+    def business_unit_display(self, obj):
+        """
+        Muestra la unidad de negocio con formato especial
+        """
+        return format_html(
+            '<div class="business-unit-container">'
+            '<span style="background-color: #4A90E2; color: white; padding: 4px 12px; '
+            'border-radius: 4px; display: inline-block; min-width: 100px; '
+            'text-align: center; font-weight: 500;">{}</span>'
+            '</div>',
+            obj.business_unit.name if obj.business_unit else 'Sin unidad'
+        )
+    business_unit_display.short_description = 'Unidad de Negocio'
 
     def expense_type_display(self, obj):
         """
@@ -179,6 +198,17 @@ class ExpensesAdmin(admin.ModelAdmin):
                         ).annotate(
                             total=Sum('amount')
                         ).order_by('-total')
+                    ],
+                    'por_unidad': [
+                        {
+                            'nombre': unit['business_unit__name'],
+                            'total': format_amount(unit['total'])
+                        }
+                        for unit in queryset.values(
+                            'business_unit__name'
+                        ).annotate(
+                            total=Sum('amount')
+                        ).order_by('-total')
                     ]
                 }
 
@@ -189,7 +219,8 @@ class ExpensesAdmin(admin.ModelAdmin):
                 response.context_data['totales'] = {
                     'total': format_amount(0),
                     'por_mes': [],
-                    'por_categoria': []
+                    'por_categoria': [],
+                    'por_unidad': []
                 }
 
         return response

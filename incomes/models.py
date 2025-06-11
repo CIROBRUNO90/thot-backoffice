@@ -2,6 +2,7 @@ from django.db import models
 from django.utils.translation import gettext_lazy as _
 
 from .constants import OrderStatus, PaymentStatus, ShippingStatus
+from tenant.models import BusinessUnit
 
 
 class Income(models.Model):
@@ -9,6 +10,17 @@ class Income(models.Model):
     Modelo para almacenar los ingresos (ventas) del e-commerce
     Basado en la estructura del archivo CSV de ventas proporcionado
     """
+    # Relación con unidad de negocio
+    business_unit = models.ForeignKey(
+        BusinessUnit,
+        on_delete=models.PROTECT,
+        verbose_name=_('Unidad de Negocio'),
+        help_text=_('Unidad de negocio a la que pertenece la venta'),
+        related_name='incomes',
+        null=True,
+        blank=True
+    )
+
     # Información de la orden
     order_number = models.CharField(_('Número de orden'), max_length=30)
     email = models.EmailField(
@@ -276,13 +288,17 @@ class Income(models.Model):
             models.Index(fields=['shipping_status']),
             models.Index(fields=['buyer_name']),
             models.Index(fields=['order_id']),
+            models.Index(fields=['business_unit']),  # Nuevo índice
         ]
 
     def __str__(self):
-        return f"Orden #{self.order_number} - {self.buyer_name} - {self.total} {self.currency}"
+        return (f"{self.business_unit.name} - Orden #{self.order_number} - "
+                f"{self.buyer_name} - {self.total} {self.currency}")
 
     def save(self, *args, **kwargs):
         # Asegurarse de que el total se calcule correctamente
-        if self.product_subtotal and self.discount is not None and self.shipping_cost is not None:
-            self.total = self.product_subtotal - self.discount + self.shipping_cost
+        if (self.product_subtotal and self.discount is not None and
+                self.shipping_cost is not None):
+            self.total = (self.product_subtotal - self.discount +
+                         self.shipping_cost)
         super().save(*args, **kwargs)
