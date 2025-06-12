@@ -141,12 +141,22 @@ class ExpensesAdmin(admin.ModelAdmin):
 
     def amount_display(self, obj):
         """
-        Formatea el monto con color según su valor y alineación correcta
+        Formatea el monto con color según su valor y alineación correcta.
+        Si el tipo de gasto tiene un límite definido,
+        muestra en rojo cuando se excede.
+        Si no hay límite definido, muestra en verde.
         """
         formatted_amount = "${:,.2f}".format(float(obj.amount))
+
+        # Verifica si existe un tipo de gasto y si tiene límite definido
+        if obj.expense_type and obj.expense_type.limit is not None:
+            color = 'red' if obj.amount > obj.expense_type.limit else 'green'
+        else:
+            color = 'green'
+
         return format_html(
             '<div class="amount-cell" style="color:{};">{}</div>',
-            'red' if obj.amount > 700000 else 'green',
+            color,
             formatted_amount
         )
     amount_display.short_description = 'Monto'
