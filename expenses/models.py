@@ -19,6 +19,15 @@ class ExpenseType(TimestampsMixin):
         help_text=_('Nombre del tipo de gasto')
     )
 
+    limit = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        verbose_name=_('Límite'),
+        help_text=_('Límite máximo permitido para este tipo de gasto'),
+        null=True,
+        blank=True
+    )
+
     class Meta:
         verbose_name = _('Tipo de Gasto')
         verbose_name_plural = _('Tipos de Gastos')
