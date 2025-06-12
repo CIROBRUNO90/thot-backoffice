@@ -17,8 +17,8 @@ class Customer(models.Model):
     )
 
     class Meta:
-        verbose_name = _('Cliente')
-        verbose_name_plural = _('Clientes')
+        verbose_name = _('Empresa')
+        verbose_name_plural = _('Empresas')
         ordering = ['name']
 
     def __str__(self):
