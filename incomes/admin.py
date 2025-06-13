@@ -23,7 +23,6 @@ class IncomeAdmin(admin.ModelAdmin):
         'business_unit_display',
         'business_type_display',
         'order_number',
-        'buyer_name',
         'date',
         'total_display',
         'payment_status',
@@ -39,7 +38,6 @@ class IncomeAdmin(admin.ModelAdmin):
     )
     search_fields = (
         'order_number',
-        'buyer_name',
         'email',
         'product_name',
         'tax_id',

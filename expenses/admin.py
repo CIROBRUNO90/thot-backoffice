@@ -32,7 +32,6 @@ class ExpensesAdmin(admin.ModelAdmin):
         'business_unit_display',
         'expense_type_display',
         'amount_display',
-        'observations',
         'is_fixed'
     ]
 
@@ -45,7 +44,6 @@ class ExpensesAdmin(admin.ModelAdmin):
     ]
 
     search_fields = [
-        'observations',
         'expense_type__name',
         'expense_type__code',
         'business_unit__name',
