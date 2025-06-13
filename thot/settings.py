@@ -55,6 +55,7 @@ INSTALLED_APPS = [
     # Third-party apps
     'rest_framework',
     'rangefilter',
+    'import_export',
     # Local apps
     'expenses',
     'incomes',

@@ -3,9 +3,11 @@ djangorestframework==3.16.0
 djangorestframework-simplejwt==5.5.0
 django-admin-interface==0.30.0
 django-admin-rangefilter==0.13.2
+django-import-export==4.3.7
 psycopg2-binary==2.9.9
 python-decouple==3.8
 uWSGI==2.0.30
 pytest-django==4.11.1
 python-dotenv==1.0.0
 whitenoise==6.9.0
+openpyxl==3.1.5

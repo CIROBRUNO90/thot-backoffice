@@ -1,14 +1,19 @@
 import logging
+import csv
+from datetime import datetime
 
 from django.contrib import admin
 from django.db.models import Sum
 from django.utils.html import format_html
+from django.http import HttpResponse
 from django.template.response import TemplateResponse
 from django.db.models.functions import TruncMonth
+from import_export.formats import base_formats
 
 from rangefilter.filters import DateRangeFilter
 
 from .models import Expenses, ExpenseType
+from .resources import ExpensesResource
 
 logger = logging.getLogger(__name__)
 
@@ -49,7 +54,13 @@ class ExpensesAdmin(admin.ModelAdmin):
 
     fieldsets = (
         ('Información Principal', {
-            'fields': ('date', 'business_unit', 'expense_type', 'amount', 'is_fixed')
+            'fields': (
+                'date',
+                'business_unit',
+                'expense_type',
+                'amount',
+                'is_fixed'
+            )
         }),
         ('Detalles Adicionales', {
             'fields': ('observations',),
@@ -57,8 +68,43 @@ class ExpensesAdmin(admin.ModelAdmin):
         })
     )
 
-    ordering = ['-date']
-    list_per_page = 20
+    def export_selected_to_csv(modeladmin, request, queryset):
+        """
+        Exporta los registros seleccionados a CSV usando el mismo formato que Excel
+        """
+        resource = ExpensesResource()
+        dataset = resource.export(queryset)
+        csv_format = base_formats.CSV()
+        response = HttpResponse(
+            csv_format.export_data(dataset),
+            content_type=csv_format.get_content_type()
+        )
+        response['Content-Disposition'] = (
+            f'attachment; filename=expenses-'
+            f'{datetime.now().strftime("%Y%m%d")}.csv'
+        )
+
+        return response
+
+    def export_selected_to_excel(modeladmin, request, queryset):
+        """
+        Exporta los registros seleccionados a Excel usando django-import-export
+        """
+        resource = ExpensesResource()
+        dataset = resource.export(queryset)
+        xlsx_format = base_formats.XLSX()
+        response = HttpResponse(
+            xlsx_format.export_data(dataset),
+            content_type=xlsx_format.get_content_type()
+        )
+        response['Content-Disposition'] = (
+            f'attachment; filename=expenses-'
+            f'{datetime.now().strftime("%Y%m%d")}.xlsx'
+        )
+        return response
+
+    export_selected_to_csv.short_description = "Exportar seleccionados a CSV"
+    export_selected_to_excel.short_description = "Exportar seleccionados a Excel"
 
     def business_unit_display(self, obj):
         """
@@ -234,3 +280,7 @@ class ExpensesAdmin(admin.ModelAdmin):
                 }
 
         return response
+
+    actions = [export_selected_to_csv, export_selected_to_excel]
+    ordering = ['-date']
+    list_per_page = 20
