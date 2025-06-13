@@ -1,14 +1,16 @@
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 
-from .constants import OrderStatus, PaymentStatus, ShippingStatus
+from .constants import (
+    OrderStatus, PaymentStatus, ShippingStatus, PaymentMethod,
+    ShippingMethod, BusinessType, Currency
+)
 from tenant.models import BusinessUnit
 
 
 class Income(models.Model):
     """
-    Modelo para almacenar los ingresos (ventas) del e-commerce
-    Basado en la estructura del archivo CSV de ventas proporcionado
+    Modelo para almacenar los ingresos (ventas) de diferentes tipos de negocios
     """
     # Relación con unidad de negocio
     business_unit = models.ForeignKey(
@@ -21,18 +23,18 @@ class Income(models.Model):
         blank=True
     )
 
-    # Información de la orden
-    order_number = models.CharField(_('Número de orden'), max_length=30)
-    email = models.EmailField(
-        _('Email'),
-        max_length=255,
-        blank=True,
-        null=True
-    )
+    # Información básica de la venta
+    order_number = models.CharField(_('Número de orden/venta'), max_length=30)
     date = models.DateField(_('Fecha'))
+    business_type = models.CharField(
+        _('Tipo de negocio'),
+        max_length=20,
+        choices=BusinessType.choices,
+        default=BusinessType.PHYSICAL
+    )
     order_status = models.CharField(
         _('Estado de la orden'),
-        max_length=20,
+        max_length=30,
         choices=OrderStatus.choices,
         default=OrderStatus.OPEN
     )
@@ -42,18 +44,11 @@ class Income(models.Model):
         choices=PaymentStatus.choices,
         default=PaymentStatus.PENDING
     )
-    shipping_status = models.CharField(
-        _('Estado del envío'),
-        max_length=20,
-        choices=ShippingStatus.choices,
-        default=ShippingStatus.NOT_PACKAGED
-    )
     currency = models.CharField(
         _('Moneda'),
         max_length=3,
-        blank=True,
-        null=True,
-        default='ARS'
+        choices=Currency.choices,
+        default=Currency.ARS
     )
 
     # Información financiera
@@ -82,10 +77,18 @@ class Income(models.Model):
         default=0
     )
 
-    # Información del comprador
+    # Información del cliente
     buyer_name = models.CharField(
-        _('Nombre del comprador'),
-        max_length=255
+        _('Nombre del cliente'),
+        max_length=255,
+        blank=True,
+        null=True
+    )
+    email = models.EmailField(
+        _('Email'),
+        max_length=255,
+        blank=True,
+        null=True
     )
     tax_id = models.CharField(
         _('DNI / CUIT'),
@@ -100,7 +103,23 @@ class Income(models.Model):
         null=True
     )
 
-    # Información de envío
+    # Información de envío (opcional)
+    shipping_status = models.CharField(
+        _('Estado del envío'),
+        max_length=20,
+        choices=ShippingStatus.choices,
+        default=ShippingStatus.NOT_REQUIRED,
+        blank=True,
+        null=True
+    )
+    shipping_method = models.CharField(
+        _('Medio de envío'),
+        max_length=20,
+        choices=ShippingMethod.choices,
+        default=ShippingMethod.NOT_REQUIRED,
+        blank=True,
+        null=True
+    )
     shipping_name = models.CharField(
         _('Nombre para el envío'),
         max_length=255,
@@ -162,16 +181,21 @@ class Income(models.Model):
         null=True
     )
 
-    # Métodos de pago y envío
-    shipping_method = models.CharField(
-        _('Medio de envío'),
-        max_length=255,
+    # Información de pago
+    payment_method = models.CharField(
+        _('Medio de pago'),
+        max_length=20,
+        choices=PaymentMethod.choices,
+        default=PaymentMethod.CASH
+    )
+    payment_date = models.DateField(
+        _('Fecha de pago'),
         blank=True,
         null=True
     )
-    payment_method = models.CharField(
-        _('Medio de pago'),
-        max_length=100,
+    payment_transaction_id = models.CharField(
+        _('ID de transacción'),
+        max_length=255,
         blank=True,
         null=True
     )
@@ -182,28 +206,13 @@ class Income(models.Model):
         null=True
     )
 
-    # Notas
-    buyer_notes = models.TextField(
-        _('Notas del comprador'),
-        blank=True,
-        null=True
-    )
-    seller_notes = models.TextField(
-        _('Notas del vendedor'),
-        blank=True,
-        null=True
-    )
-
-    # Fechas adicionales
-    payment_date = models.DateField(_('Fecha de pago'), blank=True, null=True)
-    shipping_date = models.DateField(
-        _('Fecha de envío'),
-        blank=True,
-        null=True
-    )
-
     # Información del producto
-    product_name = models.CharField(_('Nombre del producto'), max_length=255)
+    product_name = models.CharField(
+        _('Nombre del producto'),
+        max_length=255,
+        blank=True,
+        null=True
+    )
     product_price = models.DecimalField(
         _('Precio del producto'),
         max_digits=12,
@@ -214,46 +223,45 @@ class Income(models.Model):
         _('Cantidad del producto'),
         default=1
     )
-    sku = models.CharField(_('SKU'), max_length=50, blank=True, null=True)
-
-    # Información adicional
-    channel = models.CharField(
-        _('Canal'),
+    sku = models.CharField(
+        _('SKU'),
         max_length=50,
         blank=True,
         null=True
-    )
-    tracking_code = models.CharField(
-        _('Código de tracking del envío'),
-        max_length=100,
-        blank=True,
-        null=True
-    )
-    payment_transaction_id = models.CharField(
-        _('Identificador de la transacción en el medio de pago'),
-        max_length=255,
-        blank=True,
-        null=True
-    )
-    order_id = models.CharField(
-        _('Identificador de la orden'),
-        max_length=50,
-        unique=True
     )
     is_physical_product = models.BooleanField(
         _('Producto Físico'),
         default=True
     )
 
+    # Información adicional
+    channel = models.CharField(
+        _('Canal de venta'),
+        max_length=50,
+        blank=True,
+        null=True
+    )
+    tracking_code = models.CharField(
+        _('Código de tracking'),
+        max_length=100,
+        blank=True,
+        null=True
+    )
+    order_id = models.CharField(
+        _('ID de orden'),
+        max_length=50,
+        unique=True
+    )
+
     # Información de personal
     registered_by = models.CharField(
-        _('Persona que registró la venta'),
+        _('Registrado por'),
         max_length=100,
         blank=True,
         null=True
     )
     sales_branch = models.CharField(
-        _('Sucursal de venta'),
+        _('Sucursal'),
         max_length=100,
         blank=True,
         null=True
@@ -261,6 +269,18 @@ class Income(models.Model):
     seller = models.CharField(
         _('Vendedor'),
         max_length=100,
+        blank=True,
+        null=True
+    )
+
+    # Notas
+    buyer_notes = models.TextField(
+        _('Notas del cliente'),
+        blank=True,
+        null=True
+    )
+    seller_notes = models.TextField(
+        _('Notas del vendedor'),
         blank=True,
         null=True
     )
@@ -281,23 +301,25 @@ class Income(models.Model):
         ordering = ['-date']
         indexes = [
             models.Index(fields=['order_number']),
-            models.Index(fields=['email']),
             models.Index(fields=['date']),
             models.Index(fields=['order_status']),
             models.Index(fields=['payment_status']),
-            models.Index(fields=['shipping_status']),
+            models.Index(fields=['business_type']),
+            models.Index(fields=['business_unit']),
             models.Index(fields=['buyer_name']),
             models.Index(fields=['order_id']),
-            models.Index(fields=['business_unit']),  # Nuevo índice
         ]
 
     def __str__(self):
-        return (f"{self.business_unit.name} - Orden #{self.order_number} - "
-                f"{self.buyer_name} - {self.total} {self.currency}")
+        business_unit_name = self.business_unit.name if self.business_unit else 'Sin unidad'
+        return (f"{business_unit_name} - {self.get_business_type_display()} - "
+                f"#{self.order_number} - {self.buyer_name or 'Sin cliente'} - "
+                f"{self.total} {self.currency}")
 
     def save(self, *args, **kwargs):
         # Asegurarse de que el total se calcule correctamente
-        if (self.product_subtotal and self.discount is not None and
+        if (self.product_subtotal is not None and
+                self.discount is not None and
                 self.shipping_cost is not None):
             self.total = (self.product_subtotal - self.discount +
                          self.shipping_cost)

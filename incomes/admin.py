@@ -2,6 +2,9 @@ from django.contrib import admin
 from django.utils.html import format_html
 from django.db.models import Sum
 from django.template.response import TemplateResponse
+from django.db.models.functions import TruncMonth
+
+from rangefilter.filters import DateRangeFilter
 
 from .models import Income
 
@@ -9,27 +12,22 @@ from .models import Income
 @admin.register(Income)
 class IncomeAdmin(admin.ModelAdmin):
     list_display = (
-        'business_unit_display',  # Unidad de negocio al inicio
+        'business_unit_display',
+        'business_type_display',
         'order_number',
         'buyer_name',
         'date',
         'total_display',
-        'order_status',
         'payment_status',
-        'shipping_status'
     )
     list_filter = (
-        'business_unit__customer',  # Filtro por cliente
-        'business_unit',  # Filtro por unidad de negocio
+        'business_type',
+        'business_unit__customer',
+        'business_unit',
+        ('date', DateRangeFilter),
         'order_status',
         'payment_status',
-        'shipping_status',
-        'date',
-        'currency',
-        'country',
         'payment_method',
-        'shipping_method',
-        'channel'
     )
     search_fields = (
         'order_number',
@@ -39,19 +37,24 @@ class IncomeAdmin(admin.ModelAdmin):
         'tax_id',
         'order_id',
         'payment_transaction_id',
-        'business_unit__name',  # Búsqueda por nombre de unidad
-        'business_unit__customer__name'  # Búsqueda por nombre de cliente
+        'business_unit__name',
+        'business_unit__customer__name'
     )
     date_hierarchy = 'date'
     readonly_fields = ('created_at', 'updated_at')
     list_per_page = 20
 
     fieldsets = (
-        ('Información de la Orden', {
+        ('Información Principal', {
             'fields': (
-                'business_unit',  # Unidad de negocio al inicio
-                'order_number', 'order_id', 'email', 'date', 'order_status', 
-                'payment_status', 'shipping_status', 'currency'
+                'business_unit',
+                'business_type',
+                'order_number',
+                'order_id',
+                'date',
+                'order_status',
+                'payment_status',
+                'currency'
             )
         }),
         ('Información Financiera', {
@@ -63,13 +66,18 @@ class IncomeAdmin(admin.ModelAdmin):
                 'discount_coupon'
             )
         }),
-        ('Información del Comprador', {
+        ('Información del Cliente', {
             'fields': (
-                'buyer_name', 'tax_id', 'phone'
+                'buyer_name',
+                'email',
+                'tax_id',
+                'phone'
             )
         }),
         ('Información de Envío', {
             'fields': (
+                'shipping_status',
+                'shipping_method',
                 'shipping_name',
                 'shipping_phone',
                 'address',
@@ -80,9 +88,9 @@ class IncomeAdmin(admin.ModelAdmin):
                 'postal_code',
                 'state_province',
                 'country',
-                'shipping_method',
                 'tracking_code'
-            )
+            ),
+            'classes': ('collapse',)
         }),
         ('Información del Producto', {
             'fields': (
@@ -95,29 +103,40 @@ class IncomeAdmin(admin.ModelAdmin):
         }),
         ('Información de Pago', {
             'fields': (
-                'payment_method', 'payment_transaction_id', 'payment_date'
+                'payment_method',
+                'payment_transaction_id',
+                'payment_date'
             )
         }),
         ('Notas', {
             'fields': (
-                'buyer_notes', 'seller_notes'
-            )
+                'buyer_notes',
+                'seller_notes'
+            ),
+            'classes': ('collapse',)
         }),
         ('Información Adicional', {
             'fields': (
                 'channel',
-                'shipping_date',
                 'registered_by',
                 'sales_branch',
                 'seller',
                 'created_at',
                 'updated_at'
-            )
+            ),
+            'classes': ('collapse',)
         })
     )
 
     def business_unit_display(self, obj):
         """Mostrar la unidad de negocio con formato especial"""
+        if not obj.business_unit:
+            return format_html(
+                '<div style="line-height: 1.5;">'
+                '<span style="color: #666;">Sin cliente</span><br>'
+                '<strong style="color: #2c3e50;">Sin unidad</strong>'
+                '</div>'
+            )
         return format_html(
             '<div style="line-height: 1.5;">'
             '<span style="color: #666;">{}</span><br>'
@@ -127,6 +146,45 @@ class IncomeAdmin(admin.ModelAdmin):
             obj.business_unit.name
         )
     business_unit_display.short_description = 'Unidad de Negocio'
+
+    def business_type_display(self, obj):
+        """Mostrar el tipo de negocio con formato especial"""
+        colors = {
+            'ecommerce': '#4A90E2',  # Azul
+            'physical': '#2ECC71',   # Verde
+            'mixed': '#F1C40F'       # Amarillo
+        }
+        return format_html(
+            '<span style="background-color: {}; color: white; padding: 4px 12px; '
+            'border-radius: 4px; display: inline-block; min-width: 100px; '
+            'text-align: center; font-weight: 500;">{}</span>',
+            colors.get(obj.business_type, '#95A5A6'),
+            obj.get_business_type_display()
+        )
+    business_type_display.short_description = 'Tipo de Negocio'
+
+    def shipping_status_display(self, obj):
+        """Mostrar el estado de envío con formato especial"""
+        if not obj.shipping_status:
+            return format_html(
+                '<span style="color: #95A5A6;">No requiere envío</span>'
+            )
+        colors = {
+            'not_packaged': '#E74C3C',  # Rojo
+            'packaged': '#F39C12',      # Naranja
+            'shipped': '#3498DB',       # Azul
+            'delivered': '#2ECC71',     # Verde
+            'returned': '#E74C3C',      # Rojo
+            'not_required': '#95A5A6'   # Gris
+        }
+        return format_html(
+            '<span style="background-color: {}; color: white; padding: 4px 12px; '
+            'border-radius: 4px; display: inline-block; min-width: 100px; '
+            'text-align: center; font-weight: 500;">{}</span>',
+            colors.get(obj.shipping_status, '#95A5A6'),
+            obj.get_shipping_status_display()
+        )
+    shipping_status_display.short_description = 'Estado de Envío'
 
     def total_display(self, obj):
         """Mostrar el total con formato de moneda"""
@@ -162,9 +220,31 @@ class IncomeAdmin(admin.ModelAdmin):
                     'total': format_amount(
                         queryset.aggregate(total=Sum('total'))['total'] or 0
                     ),
+                    'por_tipo': [
+                        {
+                            'nombre': tipo['business_type'],
+                            'total': format_amount(tipo['total'])
+                        }
+                        for tipo in queryset.values(
+                            'business_type'
+                        ).annotate(
+                            total=Sum('total')
+                        ).order_by('-total')
+                    ],
+                    'por_mes': [
+                        {
+                            'mes': mes['mes'],
+                            'total': format_amount(mes['total'])
+                        }
+                        for mes in queryset.annotate(
+                            mes=TruncMonth('date')
+                        ).values('mes').annotate(
+                            total=Sum('total')
+                        ).order_by('-mes')[:3]
+                    ],
                     'por_unidad': [
                         {
-                            'nombre': unit['business_unit__name'],
+                            'nombre': unit['business_unit__name'] or 'Sin unidad',
                             'total': format_amount(unit['total'])
                         }
                         for unit in queryset.values(
@@ -175,7 +255,7 @@ class IncomeAdmin(admin.ModelAdmin):
                     ],
                     'por_cliente': [
                         {
-                            'nombre': client['business_unit__customer__name'],
+                            'nombre': client['business_unit__customer__name'] or 'Sin cliente',
                             'total': format_amount(client['total'])
                         }
                         for client in queryset.values(
@@ -191,6 +271,8 @@ class IncomeAdmin(admin.ModelAdmin):
             except Exception as e:
                 response.context_data['totales'] = {
                     'total': format_amount(0),
+                    'por_tipo': [],
+                    'por_mes': [],
                     'por_unidad': [],
                     'por_cliente': []
                 }
@@ -201,6 +283,6 @@ class IncomeAdmin(admin.ModelAdmin):
         """Optimización de consultas para mejorar el rendimiento"""
         queryset = super().get_queryset(request)
         return queryset.select_related(
-            'business_unit', 
+            'business_unit',
             'business_unit__customer'
         )
