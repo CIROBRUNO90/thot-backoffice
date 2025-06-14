@@ -1,0 +1,47 @@
+/* Estilos para los campos que afectan el cálculo del total */
+.field-product_subtotal input,
+.field-discount input,
+.field-shipping_cost input {
+    transition: border-color 0.3s ease;
+}
+
+.field-product_subtotal input:focus,
+.field-discount input:focus,
+.field-shipping_cost input:focus {
+    border-color: #007bff !important;
+    box-shadow: 0 0 0 0.2rem rgba(0,123,255,.25);
+}
+
+/* Estilo para el campo total */
+.field-total input {
+    font-weight: bold;
+    font-size: 1.1em;
+    color: #28a745;
+}
+
+/* Indicador visual para campos relacionados */
+.field-product_subtotal label:after,
+.field-discount label:after,
+.field-shipping_cost label:after {
+    content: " ★";
+    color: #007bff;
+    font-size: 0.8em;
+}
+
+/* Tooltip para el campo total */
+.field-total .help {
+    display: block;
+    margin-top: 5px;
+    color: #666;
+    font-style: italic;
+}
+
+/* Animación cuando se actualiza el total */
+@keyframes highlight {
+    0% { background-color: #fff3cd; }
+    100% { background-color: transparent; }
+}
+
+.field-total.updating input {
+    animation: highlight 0.5s ease;
+}
