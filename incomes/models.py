@@ -22,9 +22,11 @@ class Income(models.Model):
         null=True,
         blank=True
     )
-
     # Información básica de la venta
-    order_number = models.CharField(_('Número de orden/venta'), max_length=30)
+    order_number = models.CharField(
+        _('Número de orden/venta/factura'),
+        max_length=30
+    )
     date = models.DateField(_('Fecha'))
     business_type = models.CharField(
         _('Tipo de negocio'),
@@ -74,7 +76,8 @@ class Income(models.Model):
         _('Total'),
         max_digits=12,
         decimal_places=2,
-        default=0
+        default=0,
+        editable=True
     )
 
     # Información del cliente
@@ -247,11 +250,6 @@ class Income(models.Model):
         blank=True,
         null=True
     )
-    order_id = models.CharField(
-        _('ID de orden'),
-        max_length=50,
-        unique=True
-    )
 
     # Información de personal
     registered_by = models.CharField(
@@ -307,7 +305,7 @@ class Income(models.Model):
             models.Index(fields=['business_type']),
             models.Index(fields=['business_unit']),
             models.Index(fields=['buyer_name']),
-            models.Index(fields=['order_id']),
+            models.Index(fields=['id']),
         ]
 
     def __str__(self):
@@ -317,10 +315,15 @@ class Income(models.Model):
                 f"{self.total} {self.currency}")
 
     def save(self, *args, **kwargs):
-        # Asegurarse de que el total se calcule correctamente
-        if (self.product_subtotal is not None and
-                self.discount is not None and
-                self.shipping_cost is not None):
-            self.total = (self.product_subtotal - self.discount +
-                         self.shipping_cost)
+        from decimal import Decimal
+
+        product_subtotal = self.product_subtotal or Decimal('0')
+        discount = self.discount or Decimal('0')
+        shipping_cost = self.shipping_cost or Decimal('0')
+
+        discount = min(discount, product_subtotal)
+
+        self.total = product_subtotal - discount + shipping_cost
+        self.total = max(self.total, Decimal('0'))
+
         super().save(*args, **kwargs)
