@@ -17,9 +17,11 @@ from .resources import IncomeResource
 
 logger = logging.getLogger(__name__)
 
+
 @admin.register(Income)
 class IncomeAdmin(admin.ModelAdmin):
     list_display = (
+        'id',
         'business_unit_display',
         'business_type_display',
         'order_number',
@@ -37,11 +39,11 @@ class IncomeAdmin(admin.ModelAdmin):
         'payment_method',
     )
     search_fields = (
+        'id',
         'order_number',
         'email',
         'product_name',
         'tax_id',
-        'order_id',
         'payment_transaction_id',
         'business_unit__name',
         'business_unit__customer__name'
@@ -87,14 +89,38 @@ class IncomeAdmin(admin.ModelAdmin):
     fieldsets = (
         ('Información Principal', {
             'fields': (
+                'id_display',
                 'business_unit',
                 'business_type',
                 'order_number',
-                'order_id',
                 'date',
                 'order_status',
                 'payment_status',
                 'currency'
+            )
+        }),
+        ('Información del Producto', {
+            'fields': (
+                'product_name',
+                'product_price',
+                'product_quantity',
+                'sku',
+                'is_physical_product'
+            )
+        }),
+        ('Información del Cliente', {
+            'fields': (
+                'buyer_name',
+                'email',
+                'tax_id',
+                'phone'
+            )
+        }),
+        ('Información de Pago', {
+            'fields': (
+                'payment_method',
+                'payment_transaction_id',
+                'payment_date'
             )
         }),
         ('Información Financiera', {
@@ -104,14 +130,6 @@ class IncomeAdmin(admin.ModelAdmin):
                 'shipping_cost',
                 'total',
                 'discount_coupon'
-            )
-        }),
-        ('Información del Cliente', {
-            'fields': (
-                'buyer_name',
-                'email',
-                'tax_id',
-                'phone'
             )
         }),
         ('Información de Envío', {
@@ -132,22 +150,6 @@ class IncomeAdmin(admin.ModelAdmin):
             ),
             'classes': ('collapse',)
         }),
-        ('Información del Producto', {
-            'fields': (
-                'product_name',
-                'product_price',
-                'product_quantity',
-                'sku',
-                'is_physical_product'
-            )
-        }),
-        ('Información de Pago', {
-            'fields': (
-                'payment_method',
-                'payment_transaction_id',
-                'payment_date'
-            )
-        }),
         ('Notas', {
             'fields': (
                 'buyer_notes',
@@ -155,7 +157,7 @@ class IncomeAdmin(admin.ModelAdmin):
             ),
             'classes': ('collapse',)
         }),
-        ('Información Adicional', {
+        ('Metadatos', {
             'fields': (
                 'channel',
                 'registered_by',
@@ -167,6 +169,50 @@ class IncomeAdmin(admin.ModelAdmin):
             'classes': ('collapse',)
         })
     )
+
+    def id_display(self, obj):
+        """Mostrar el ID del objeto o el próximo ID si es nuevo"""
+        if obj.id:
+            return obj.id
+        else:
+            try:
+                last_income = Income.objects.order_by('-id').first()
+                next_id = (last_income.id + 1) if last_income else 1
+                return f"{next_id} (próximo)"
+            except Exception:
+                return "Nuevo"
+    id_display.short_description = 'ID'
+
+    def get_form(self, request, obj=None, **kwargs):
+        form = super().get_form(request, obj, **kwargs)
+
+        if 'total' in form.base_fields:
+            form.base_fields['total'].widget.attrs.update({
+                'readonly': 'readonly',
+                'style': 'background-color: #f8f9fa;'
+            })
+
+        return form
+
+    def get_fields(self, request, obj=None):
+        fields = list(super().get_fields(request, obj))
+        if 'total' not in fields:
+            fields.append('total')
+        return fields
+
+    def get_fieldsets(self, request, obj=None):
+        fieldsets = super().get_fieldsets(request, obj)
+
+        for fieldset in fieldsets:
+            if fieldset[0] == 'Información Financiera':
+                fields = list(fieldset[1]['fields'])
+                # Mover 'total' al final si existe
+                if 'total' in fields:
+                    fields.remove('total')
+                fields.append('total')
+                fieldset[1]['fields'] = tuple(fields)
+
+        return fieldsets
 
     def business_unit_display(self, obj):
         """Mostrar la unidad de negocio con formato especial"""
@@ -328,9 +374,23 @@ class IncomeAdmin(admin.ModelAdmin):
         )
 
     date_hierarchy = 'date'
-    readonly_fields = ('created_at', 'updated_at')
+    readonly_fields = ('id_display', 'created_at', 'updated_at', 'total')
     list_per_page = 20
     actions = [
         export_selected_to_csv,
         export_selected_to_excel
     ]
+
+    class Media:
+        js = (
+            'admin/js/jquery.init.js',
+            'incomes/js/income_calculator.js',
+        )
+        css = {
+            'all': ('incomes/css/income_admin.css',)
+        }
+
+    def get_readonly_fields(self, request, obj=None):
+        readonly_fields = list(super().get_readonly_fields(request, obj))
+        readonly_fields.append('total')
+        return readonly_fields
