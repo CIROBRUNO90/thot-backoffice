@@ -77,7 +77,6 @@ class Income(models.Model):
         max_digits=12,
         decimal_places=2,
         default=0,
-        editable=True
     )
 
     # Información del cliente

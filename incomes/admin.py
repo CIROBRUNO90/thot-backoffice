@@ -6,7 +6,9 @@ from django.utils.html import format_html
 from django.db.models import Sum
 from django.template.response import TemplateResponse
 from django.db.models.functions import TruncMonth
+from django.core.exceptions import ValidationError
 from django.http import HttpResponse
+from django import forms
 from import_export.formats import base_formats
 
 from rangefilter.filters import DateRangeFilter
@@ -18,8 +20,58 @@ from .resources import IncomeResource
 logger = logging.getLogger(__name__)
 
 
+class IncomeAdminForm(forms.ModelForm):
+    """Formulario personalizado para validar que el total no sea 0"""
+    # Campo calculado de solo lectura
+    calculated_total = forms.DecimalField(
+        label='Total Calculado',
+        required=False,
+        widget=forms.TextInput(attrs={
+            'readonly': 'readonly',
+            'style': 'background-color: #f0f0f0; font-weight: bold;'
+        }),
+        help_text='Este valor se calcula automáticamente: Subtotal - Descuento + Envío'
+    )
+    
+    class Meta:
+        model = Income
+        fields = '__all__'
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Si hay datos, calcular el total
+        if self.instance and self.instance.pk:
+            subtotal = self.instance.product_subtotal or 0
+            discount = self.instance.discount or 0
+            shipping = self.instance.shipping_cost or 0
+            self.fields['calculated_total'].initial = subtotal - discount + shipping
+
+    def clean(self):
+        cleaned_data = super().clean()
+
+        # Obtener valores
+        product_subtotal = cleaned_data.get('product_subtotal', 0) or 0
+        discount = cleaned_data.get('discount', 0) or 0
+        shipping_cost = cleaned_data.get('shipping_cost', 0) or 0
+
+        # Calcular total
+        calculated_total = product_subtotal - discount + shipping_cost
+
+        # Validar que el total sea mayor que 0
+        if calculated_total <= 0:
+            raise ValidationError({
+                'product_subtotal': f'El total calculado ({calculated_total}) debe ser mayor que 0. Ajuste el subtotal, descuento o costo de envío.'
+            })
+
+        # Asignar el total calculado
+        cleaned_data['total'] = calculated_total
+
+        return cleaned_data
+
+
 @admin.register(Income)
 class IncomeAdmin(admin.ModelAdmin):
+    form = IncomeAdminForm
     list_display = (
         'id',
         'business_unit_display',
@@ -130,7 +182,8 @@ class IncomeAdmin(admin.ModelAdmin):
                 'shipping_cost',
                 'total',
                 'discount_coupon'
-            )
+            ),
+            'description': 'El total se calcula automáticamente: Subtotal - Descuento + Envío'
         }),
         ('Información de Envío', {
             'fields': (
@@ -374,7 +427,7 @@ class IncomeAdmin(admin.ModelAdmin):
         )
 
     date_hierarchy = 'date'
-    readonly_fields = ('id_display', 'created_at', 'updated_at', 'total')
+    readonly_fields = ('id_display', 'created_at', 'updated_at')
     list_per_page = 20
     actions = [
         export_selected_to_csv,
@@ -382,15 +435,8 @@ class IncomeAdmin(admin.ModelAdmin):
     ]
 
     class Media:
-        js = (
-            'admin/js/jquery.init.js',
-            'incomes/js/income_calculator.js',
-        )
-        css = {
-            'all': ('incomes/css/income_admin.css',)
-        }
+        js = ('js/income_calculator.js',)
 
     def get_readonly_fields(self, request, obj=None):
         readonly_fields = list(super().get_readonly_fields(request, obj))
-        readonly_fields.append('total')
         return readonly_fields
