@@ -1,5 +1,4 @@
 import logging
-import csv
 from datetime import datetime
 
 from django.contrib import admin
@@ -103,6 +102,36 @@ class ExpensesAdmin(admin.ModelAdmin):
 
     export_selected_to_csv.short_description = "Exportar seleccionados a CSV"
     export_selected_to_excel.short_description = "Exportar seleccionados a Excel"
+
+    def get_queryset(self, request):
+        """
+        Optimización de consultas y filtrado por unidad de negocio del usuario
+        """
+        queryset = super().get_queryset(request)
+
+        # Si el usuario es superusuario, mostrar todos los registros
+        if request.user.is_superuser:
+            return queryset.select_related('business_unit', 'expense_type')
+
+        # Usar el filtro de unidad de negocio del middleware
+        return queryset.filter(
+            request.business_unit_filter
+        ).select_related('business_unit', 'expense_type')
+
+    def get_form(self, request, obj=None, **kwargs):
+        form = super().get_form(request, obj, **kwargs)
+
+        # Si el usuario no es superusuario, filtrar las unidades de negocio disponibles
+        if not request.user.is_superuser:
+            form.base_fields['business_unit'].queryset = form.base_fields['business_unit'].queryset.filter(
+                id__in=request.user_business_units
+            )
+            # Si el usuario solo tiene una unidad de negocio, preseleccionar esa unidad
+            if len(request.user_business_units) == 1:
+                form.base_fields['business_unit'].initial = request.user_business_units[0]
+                form.base_fields['business_unit'].widget.attrs['disabled'] = True
+
+        return form
 
     def business_unit_display(self, obj):
         """

@@ -1,6 +1,10 @@
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 
+from django.contrib.auth import get_user_model
+
+User = get_user_model()
+
 
 class Customer(models.Model):
     name = models.CharField(_('Nombre'), max_length=255)
@@ -52,3 +56,59 @@ class BusinessUnit(models.Model):
 
     def __str__(self):
         return f"{self.customer.name} - {self.name}"
+
+
+class BusinessUnitUser(models.Model):
+    """
+    Modelo intermedio para manejar la relación muchos a muchos entre usuarios
+    y unidades de negocio
+    """
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        verbose_name=_('Usuario'),
+        related_name='business_unit_assignments'
+    )
+    business_unit = models.ForeignKey(
+        BusinessUnit,
+        on_delete=models.CASCADE,
+        verbose_name=_('Unidad de Negocio'),
+        related_name='user_assignments'
+    )
+    is_primary = models.BooleanField(
+        _('Unidad Principal'),
+        default=False,
+        help_text=_(
+            'Indica si esta es la unidad de negocio principal del usuario'
+        )
+    )
+    created_at = models.DateTimeField(
+        _('Fecha de creación'),
+        auto_now_add=True
+    )
+    updated_at = models.DateTimeField(
+        _('Fecha de actualización'),
+        auto_now=True
+    )
+
+    class Meta:
+        verbose_name = _('Asignación de Usuario a Unidad de Negocio')
+        verbose_name_plural = _(
+            'Asignaciones de Usuarios a Unidades de Negocio'
+        )
+        unique_together = ['user', 'business_unit']
+        ordering = ['user', '-is_primary', 'business_unit__name']
+
+    def __str__(self):
+        return f"{self.user.username} - {self.business_unit.name}"
+
+    def save(self, *args, **kwargs):
+        # Si esta es la unidad principal, desactivar otras unidades principales del usuario
+        if self.is_primary:
+            BusinessUnitUser.objects.filter(
+                user=self.user,
+                is_primary=True
+            ).exclude(
+                id=self.id
+            ).update(is_primary=False)
+        super().save(*args, **kwargs)

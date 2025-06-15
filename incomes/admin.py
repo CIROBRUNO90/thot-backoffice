@@ -32,11 +32,11 @@ class IncomeAdminForm(forms.ModelForm):
         }),
         help_text='Este valor se calcula automáticamente: Subtotal - Descuento + Envío'
     )
-    
+
     class Meta:
         model = Income
         fields = '__all__'
-    
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         # Si hay datos, calcular el total
@@ -239,6 +239,17 @@ class IncomeAdmin(admin.ModelAdmin):
     def get_form(self, request, obj=None, **kwargs):
         form = super().get_form(request, obj, **kwargs)
 
+        # Si el usuario es superusuario, mostrar todas las unidades
+        if not request.user.is_superuser:
+            # Filtrar las unidades de negocio disponibles
+            form.base_fields['business_unit'].queryset = form.base_fields['business_unit'].queryset.filter(
+                id__in=request.user_business_units
+            )
+
+            if len(request.user_business_units) == 1:
+                form.base_fields['business_unit'].initial = request.user_business_units[0]
+                form.base_fields['business_unit'].widget.attrs['disabled'] = True
+
         if 'total' in form.base_fields:
             form.base_fields['total'].widget.attrs.update({
                 'readonly': 'readonly',
@@ -419,9 +430,20 @@ class IncomeAdmin(admin.ModelAdmin):
         return response
 
     def get_queryset(self, request):
-        """Optimización de consultas para mejorar el rendimiento"""
+        """Optimización de consultas y filtrado por unidad de negocio del usuario"""
         queryset = super().get_queryset(request)
-        return queryset.select_related(
+
+        # Si el usuario es superusuario, mostrar todos los registros
+        if request.user.is_superuser:
+            return queryset.select_related(
+                'business_unit',
+                'business_unit__customer'
+            )
+
+        # Usar el filtro de unidad de negocio del middleware
+        return queryset.filter(
+            request.business_unit_filter
+        ).select_related(
             'business_unit',
             'business_unit__customer'
         )
