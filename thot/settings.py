@@ -32,11 +32,7 @@ SECRET_KEY = str(env("SECRET_KEY"))
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = str(env("DEBUG", False)).lower() in ["true"]
 
-CSRF_TRUSTED_ORIGINS = [
-    'https://thot-back-production.up.railway.app',
-    'http://thot-back-production.up.railway.app',
-    'https://thot-backoffice-production.up.railway.app',
-]
+CSRF_TRUSTED_ORIGINS = str(env("CSRF_TRUSTED_ORIGINS", "")).split(",") if env("CSRF_TRUSTED_ORIGINS") else []
 
 ALLOWED_HOSTS = ['*']
 
