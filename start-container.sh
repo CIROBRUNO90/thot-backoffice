@@ -17,6 +17,7 @@ python manage.py collectstatic --noinput
 echo "Applying migrations..."
 python manage.py makemigrations
 python manage.py migrate
+
 echo "Creating default admin user..."
 python manage.py shell -c "from django.contrib.auth.models import User; User.objects.create_superuser('admin', 'admin@example.com', 'admin') if not User.objects.filter(username='admin').exists() else None"
 
