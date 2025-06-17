@@ -92,9 +92,9 @@ class BusinessUnitUser(models.Model):
     )
 
     class Meta:
-        verbose_name = _('Asignación de Usuario a Unidad de Negocio')
+        verbose_name = _('Usuario y Unidad de Negocio')
         verbose_name_plural = _(
-            'Asignaciones de Usuarios a Unidades de Negocio'
+            'Usuarios y Unidades de Negocio'
         )
         unique_together = ['user', 'business_unit']
         ordering = ['user', '-is_primary', 'business_unit__name']
