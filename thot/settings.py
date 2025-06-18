@@ -102,7 +102,6 @@ DB_HOST = os.environ.get('DB_HOST', '')
 DB_PORT = os.environ.get('DB_PORT', '')
 
 if DB_NAME and DB_USER and DB_PASSWORD and DB_HOST and DB_PORT:
-    print("Using environment variables for database configuration.")
     DATABASES = {
         "default": {
             "ENGINE": "django.db.backends.postgresql_psycopg2",
@@ -114,7 +113,6 @@ if DB_NAME and DB_USER and DB_PASSWORD and DB_HOST and DB_PORT:
         },
     }
 else:
-    print("Using local database configuration.")
     DATABASES = {
         "default": {
             "ENGINE": "django.db.backends.postgresql_psycopg2",
@@ -176,3 +174,8 @@ X_FRAME_OPTIONS = 'SAMEORIGIN'
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# session configs
+SESSION_COOKIE_AGE = int(env("SESSION_COOKIE_AGE", 1800))
+SESSION_EXPIRE_AT_BROWSER_CLOSE = True
+SESSION_SAVE_EVERY_REQUEST = True
