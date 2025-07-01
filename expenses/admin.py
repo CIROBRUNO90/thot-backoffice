@@ -2,7 +2,7 @@ import logging
 from datetime import datetime
 
 from django.contrib import admin
-from django.db.models import Sum
+from django.db.models import Q, Sum
 from django.utils.html import format_html
 from django.http import HttpResponse
 from django.template.response import TemplateResponse
@@ -101,7 +101,9 @@ class ExpensesAdmin(admin.ModelAdmin):
         return response
 
     export_selected_to_csv.short_description = "Exportar seleccionados a CSV"
-    export_selected_to_excel.short_description = "Exportar seleccionados a Excel"
+    export_selected_to_excel.short_description = (
+        "Exportar seleccionados a Excel"
+    )
 
     def get_queryset(self, request):
         """
@@ -113,23 +115,32 @@ class ExpensesAdmin(admin.ModelAdmin):
         if request.user.is_superuser:
             return queryset.select_related('business_unit', 'expense_type')
 
-        # Usar el filtro de unidad de negocio del middleware
+        # Para otros usuarios, mostrar gastos de sus unidades de negocio y
+        # también aquellos sin unidad de negocio asignada.
+        filter_condition = request.business_unit_filter | Q(business_unit__isnull=True)
+
         return queryset.filter(
-            request.business_unit_filter
+            filter_condition
         ).select_related('business_unit', 'expense_type')
 
     def get_form(self, request, obj=None, **kwargs):
         form = super().get_form(request, obj, **kwargs)
 
-        # Si el usuario no es superusuario, filtrar las unidades de negocio disponibles
-        if not request.user.is_superuser:
-            form.base_fields['business_unit'].queryset = form.base_fields['business_unit'].queryset.filter(
-                id__in=request.user_business_units
-            )
-            # Si el usuario solo tiene una unidad de negocio, preseleccionar esa unidad
-            if len(request.user_business_units) == 1:
-                form.base_fields['business_unit'].initial = request.user_business_units[0]
-                form.base_fields['business_unit'].widget.attrs['disabled'] = True
+        if request.user.is_superuser:
+            return form
+
+        # Filtrar UDN para usuarios no super-admins
+        user_bu = request.user_business_units
+        bu_field = form.base_fields['business_unit']
+        bu_field.queryset = bu_field.queryset.filter(id__in=user_bu)
+
+        # Si el usuario solo tiene una UDN y el gasto ya tiene una asignada, deshabilitar
+        if len(user_bu) == 1 and obj and obj.business_unit:
+            bu_field.initial = user_bu[0]
+            bu_field.widget.attrs['disabled'] = True
+        else:
+            # Si el gasto no tiene unidad, dejar el campo habilitado
+            bu_field.widget.attrs.pop('disabled', None)
 
         return form
 
@@ -139,9 +150,10 @@ class ExpensesAdmin(admin.ModelAdmin):
         """
         return format_html(
             '<div class="business-unit-container">'
-            '<span style="background-color: #4A90E2; color: white; padding: 4px 12px; '
-            'border-radius: 4px; display: inline-block; min-width: 100px; '
-            'text-align: center; font-weight: 500;">{}</span>'
+            '<span style="background-color: #4A90E2; color: white; '
+            'padding: 4px 12px; border-radius: 4px; display: inline-block; '
+            'min-width: 100px; text-align: center; font-weight: 500;">{}'
+            '</span>'
             '</div>',
             obj.business_unit.name if obj.business_unit else 'Sin unidad'
         )
@@ -238,7 +250,9 @@ class ExpensesAdmin(admin.ModelAdmin):
         """
         Añade estadísticas al pie de la lista de gastos
         """
-        response = super().changelist_view(request, extra_context=extra_context)
+        response = super().changelist_view(
+            request, extra_context=extra_context
+        )
 
         if isinstance(response, TemplateResponse):
             try:
@@ -247,14 +261,18 @@ class ExpensesAdmin(admin.ModelAdmin):
                 else:
                     queryset = self.model.objects.all()
 
-                if hasattr(response.context_data.get('cl', None), 'get_queryset'):
-                    queryset = response.context_data['cl'].get_queryset(request)
+                cl = response.context_data.get('cl')
+                if hasattr(cl, 'get_queryset'):
+                    queryset = cl.get_queryset(request)
 
                 def format_amount(amount):
                     """
                     Formatea el monto con separadores de miles y dos decimales
                     """
-                    return f"${amount:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+                    return ("${:,.2f}".format(amount)
+                            .replace(",", "X")
+                            .replace(".", ",")
+                            .replace("X", "."))
 
                 totales = {
                     'total': format_amount(
@@ -284,7 +302,9 @@ class ExpensesAdmin(admin.ModelAdmin):
                     ],
                     'por_unidad': [
                         {
-                            'nombre': unit['business_unit__name'] if unit['business_unit__name'] else 'Sin unidad',
+                            'nombre': (
+                                unit['business_unit__name'] or 'Sin unidad'
+                            ),
                             'total': format_amount(unit['total'])
                         }
                         for unit in queryset.values(

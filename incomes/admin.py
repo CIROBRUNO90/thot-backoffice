@@ -3,7 +3,7 @@ from datetime import datetime
 
 from django.contrib import admin
 from django.utils.html import format_html
-from django.db.models import Sum
+from django.db.models import Sum, Q
 from django.template.response import TemplateResponse
 from django.db.models.functions import TruncMonth
 from django.core.exceptions import ValidationError
@@ -44,7 +44,9 @@ class IncomeAdminForm(forms.ModelForm):
             subtotal = self.instance.product_subtotal or 0
             discount = self.instance.discount or 0
             shipping = self.instance.shipping_cost or 0
-            self.fields['calculated_total'].initial = subtotal - discount + shipping
+            self.fields['calculated_total'].initial = (
+                subtotal - discount + shipping
+            )
 
     def clean(self):
         cleaned_data = super().clean()
@@ -60,7 +62,10 @@ class IncomeAdminForm(forms.ModelForm):
         # Validar que el total sea mayor que 0
         if calculated_total <= 0:
             raise ValidationError({
-                'product_subtotal': f'El total calculado ({calculated_total}) debe ser mayor que 0. Ajuste el subtotal, descuento o costo de envío.'
+                'product_subtotal': (
+                    f'El total calculado ({calculated_total}) debe ser mayor que 0. '
+                    'Ajuste el subtotal, descuento o costo de envío.'
+                )
             })
 
         # Asignar el total calculado
@@ -183,7 +188,9 @@ class IncomeAdmin(admin.ModelAdmin):
                 'total',
                 'discount_coupon'
             ),
-            'description': 'El total se calcula automáticamente: Subtotal - Descuento + Envío'
+            'description': (
+                'El total se calcula automáticamente: Subtotal - Descuento + Envío'
+            )
         }),
         ('Información de Envío', {
             'fields': (
@@ -239,16 +246,20 @@ class IncomeAdmin(admin.ModelAdmin):
     def get_form(self, request, obj=None, **kwargs):
         form = super().get_form(request, obj, **kwargs)
 
-        # Si el usuario es superusuario, mostrar todas las unidades
-        if not request.user.is_superuser:
-            # Filtrar las unidades de negocio disponibles
-            form.base_fields['business_unit'].queryset = form.base_fields['business_unit'].queryset.filter(
-                id__in=request.user_business_units
-            )
+        if request.user.is_superuser:
+            return form
 
-            if len(request.user_business_units) == 1:
-                form.base_fields['business_unit'].initial = request.user_business_units[0]
-                form.base_fields['business_unit'].widget.attrs['disabled'] = True
+        user_bu = request.user_business_units
+        bu_field = form.base_fields['business_unit']
+        bu_field.queryset = bu_field.queryset.filter(id__in=user_bu)
+
+        # Si el usuario solo tiene una UDN y el ingreso ya tiene una asignada, deshabilitar
+        if len(user_bu) == 1 and obj and obj.business_unit:
+            bu_field.initial = user_bu[0]
+            bu_field.widget.attrs['disabled'] = True
+        else:
+            # Si el ingreso no tiene unidad, dejar el campo habilitado
+            bu_field.widget.attrs.pop('disabled', None)
 
         if 'total' in form.base_fields:
             form.base_fields['total'].widget.attrs.update({
@@ -350,7 +361,9 @@ class IncomeAdmin(admin.ModelAdmin):
         """
         Añade estadísticas al pie de la lista de ingresos
         """
-        response = super().changelist_view(request, extra_context=extra_context)
+        response = super().changelist_view(
+            request, extra_context=extra_context
+        )
 
         if isinstance(response, TemplateResponse):
             try:
@@ -440,9 +453,10 @@ class IncomeAdmin(admin.ModelAdmin):
                 'business_unit__customer'
             )
 
-        # Usar el filtro de unidad de negocio del middleware
+        # Para otros usuarios, mostrar ingresos de sus unidades de negocio y también los sin unidad
+        filter_condition = request.business_unit_filter | Q(business_unit__isnull=True)
         return queryset.filter(
-            request.business_unit_filter
+            filter_condition
         ).select_related(
             'business_unit',
             'business_unit__customer'
