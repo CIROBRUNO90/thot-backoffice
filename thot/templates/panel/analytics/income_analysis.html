@@ -1,0 +1,658 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+
+{% block title %}Análisis de Ingresos - {{ site_title|default:_('Django site admin') }}{% endblock %}
+
+{% block extrahead %}
+    {{ block.super }}
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js" defer></script>
+    <style>
+        .analysis-container {
+            padding: 1rem;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        .filters-section {
+            background: #fff;
+            border: 1px solid #e1e5e9;
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+        }
+        
+        .filters-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            align-items: end;
+        }
+        
+        .filter-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: #222;
+        }
+        
+        .filter-group select,
+        .filter-group input {
+            width: 100%;
+            min-width: 160px;
+            padding: 0.5rem 1.2rem 0.5rem 0.5rem;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 0.95rem;
+            background: #fff;
+            box-sizing: border-box;
+        }
+        
+        .filter-group select {
+            appearance: none;
+            background-image: url('data:image/svg+xml;utf8,<svg fill="%23666" height="16" viewBox="0 0 24 24" width="16" xmlns="http://www.w3.org/2000/svg"><path d="M7 10l5 5 5-5z"/></svg>');
+            background-repeat: no-repeat;
+            background-position: right 0.7rem center;
+            background-size: 1.2em;
+        }
+        
+        .filter-btn {
+            background: #1976d2;
+            color: #fff;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.97rem;
+            font-weight: 500;
+            transition: background 0.2s;
+        }
+        
+        .filter-btn:hover {
+            background: #0d47a1;
+        }
+        
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+        
+        .kpi-card {
+            background: #fff;
+            border: 1px solid #e1e5e9;
+            border-radius: 8px;
+            padding: 1.5rem;
+            text-align: center;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .kpi-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #28a745, #20c997);
+        }
+        
+        .kpi-value {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #28a745;
+            margin-bottom: 0.5rem;
+        }
+        
+        .kpi-label {
+            color: #555;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .kpi-change {
+            font-size: 0.8rem;
+            margin-top: 0.5rem;
+        }
+        
+        .kpi-change.positive {
+            color: #28a745;
+        }
+        
+        .kpi-change.negative {
+            color: #dc3545;
+        }
+        
+        .charts-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+        
+        .chart-container {
+            background: #fff;
+            border: 1px solid #e1e5e9;
+            border-radius: 8px;
+            padding: 1.5rem;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+            height: 400px;
+            position: relative;
+        }
+        
+        .chart-title {
+            margin: 0 0 1rem 0;
+            color: #222;
+            font-size: 1.1rem;
+        }
+        
+        .chart-wrapper {
+            position: relative;
+            height: 300px;
+            width: 100%;
+        }
+        
+        .back-link {
+            display: inline-block;
+            margin-bottom: 1rem;
+            color: #1976d2;
+            text-decoration: none;
+            font-weight: 500;
+        }
+        
+        .back-link:hover {
+            text-decoration: underline;
+        }
+        
+        .projection-section {
+            background: #fff;
+            border: 1px solid #e1e5e9;
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+        }
+        
+        .projection-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+        
+        .projection-item {
+            text-align: center;
+            padding: 1rem;
+            background: #f8f9fa;
+            border-radius: 6px;
+        }
+        
+        .projection-value {
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #28a745;
+        }
+        
+        .projection-label {
+            font-size: 0.8rem;
+            color: #555;
+            margin-top: 0.5rem;
+        }
+        
+        .confidence-indicator {
+            display: inline-block;
+            padding: 0.2rem 0.5rem;
+            border-radius: 12px;
+            font-size: 0.7rem;
+            font-weight: 500;
+            margin-top: 0.5rem;
+        }
+        
+        .confidence-high {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .confidence-medium {
+            background: #fff3cd;
+            color: #856404;
+        }
+        
+        .confidence-low {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
+        .confidence-none {
+            background: #e2e3e5;
+            color: #383d41;
+        }
+        
+        .projection-info {
+            font-size: 0.8rem;
+            color: #666;
+            margin-top: 1rem;
+            padding: 0.5rem;
+            background: #f8f9fa;
+            border-radius: 4px;
+            border-left: 3px solid #007bff;
+        }
+        
+        .projection-warning {
+            display: none;
+            color: #dc3545;
+            font-weight: bold;
+            margin-top: 1rem;
+        }
+        
+        .loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 300px;
+            color: #666;
+            font-style: italic;
+        }
+        
+        @media (max-width: 768px) {
+            .charts-grid {
+                grid-template-columns: 1fr;
+            }
+            .chart-container {
+                height: 350px;
+            }
+            .chart-wrapper {
+                height: 250px;
+            }
+        }
+    </style>
+{% endblock %}
+
+{% block content %}
+<div class="analysis-container">
+    <a href="/panel/analytics/" class="back-link">← Volver a Analítica</a>
+    
+    <h1>📈 Análisis de Ingresos</h1>
+    
+    <!-- Filtros -->
+    <div class="filters-section">
+        <h3>Filtros</h3>
+        <form method="get" class="filters-grid">
+            <div class="filter-group">
+                <label for="date_from">Desde:</label>
+                <input type="date" id="date_from" name="date_from" value="{{ request.GET.date_from }}">
+            </div>
+            <div class="filter-group">
+                <label for="date_to">Hasta:</label>
+                <input type="date" id="date_to" name="date_to" value="{{ request.GET.date_to }}">
+            </div>
+            <div class="filter-group">
+                <button type="submit" class="filter-btn">Aplicar Filtros</button>
+            </div>
+        </form>
+    </div>
+    
+    <!-- KPIs principales -->
+    <div class="kpi-grid">
+        <div class="kpi-card">
+            <div class="kpi-value">$25,000</div>
+            <div class="kpi-label">Ingresos del Mes</div>
+            <div class="kpi-change positive">+12.5% vs mes anterior</div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-value">$833</div>
+            <div class="kpi-label">Promedio Diario</div>
+            <div class="kpi-change positive">+8.3% vs mes anterior</div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-value">$28,500</div>
+            <div class="kpi-label">Proyección Próximo Mes</div>
+            <div class="kpi-change positive">+14.0% vs mes actual</div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-value">15</div>
+            <div class="kpi-label">Transacciones</div>
+            <div class="kpi-change positive">+3 vs mes anterior</div>
+        </div>
+    </div>
+    
+    <!-- Gráficos principales -->
+    <div class="charts-grid">
+        <div class="chart-container">
+            <h3 class="chart-title">Evolución de Ingresos</h3>
+            <div class="chart-wrapper">
+                <div class="loading">Cargando gráfico...</div>
+                <canvas id="incomeChart"></canvas>
+            </div>
+        </div>
+        <div class="chart-container">
+            <h3 class="chart-title">Distribución por Unidad de Negocio</h3>
+            <div class="chart-wrapper">
+                <div class="loading">Cargando gráfico...</div>
+                <canvas id="unitChart"></canvas>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Proyecciones -->
+    <div class="projection-section">
+        <h3>📊 Proyecciones Financieras</h3>
+        <div class="projection-grid">
+            <div class="projection-item">
+                <div class="projection-value">$28,500</div>
+                <div class="projection-label">Próximo Mes</div>
+                <div class="confidence-indicator confidence-high">Alta confianza</div>
+            </div>
+        </div>
+        <div class="projection-info">
+            <strong>Información sobre las proyecciones:</strong><br>
+            Las proyecciones se calculan usando análisis de tendencia lineal basado en los datos históricos disponibles. 
+            La confiabilidad depende de la estabilidad de los datos y la cantidad de información histórica.
+        </div>
+        <div class="projection-warning" style="display:none;color:#dc3545;font-weight:bold;margin-top:1rem;">
+            ⚠️ Proyección poco fiable por falta de datos históricos.
+        </div>
+    </div>
+    
+    <!-- Gráficos adicionales -->
+    <div class="charts-grid">
+        <div class="chart-container">
+            <h3 class="chart-title">Tendencia Mensual</h3>
+            <div class="chart-wrapper">
+                <div class="loading">Cargando gráfico...</div>
+                <canvas id="monthlyTrendChart"></canvas>
+            </div>
+        </div>
+        <div class="chart-container">
+            <h3 class="chart-title">Comparación Mensual</h3>
+            <div class="chart-wrapper">
+                <div class="loading">Cargando gráfico...</div>
+                <canvas id="comparisonChart"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let incomeChart, sourceChart, monthlyTrendChart, comparisonChart, unitChart;
+
+async function fetchIncomeData() {
+    try {
+        const form = document.querySelector('.filters-grid');
+        const params = new URLSearchParams(new FormData(form));
+        const response = await fetch('/panel/analytics/income-analysis/data/?' + params);
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        console.log('Datos recibidos:', data);
+        return data;
+    } catch (error) {
+        console.error('Error al obtener datos:', error);
+        // Retornar datos de ejemplo en caso de error
+        return {
+            ingresos_por_fuente: [],
+            ingresos_mensuales: [],
+            ingresos_anuales: [],
+            ingresos_por_estado: [],
+            stats: {
+                total_ingresos: 0,
+                promedio_diario: 0,
+                num_transacciones: 0,
+                proyeccion: 0,
+                cambio_porcentual: 0,
+                confiabilidad: 'SIN_DATOS',
+                indicadores: {'razon': 'Error al cargar datos'}
+            },
+            proyecciones: {}
+        };
+    }
+}
+
+function destroyIfExists(chart) {
+    if (chart) {
+        chart.destroy();
+    }
+}
+
+function getBusinessTypeDisplay(businessType) {
+    const types = {
+        'PHYSICAL': 'Ventas Físicas',
+        'ONLINE': 'Ventas Online',
+        'SERVICE': 'Servicios',
+        'OTHER': 'Otros'
+    };
+    return types[businessType] || businessType;
+}
+
+function getPaymentStatusDisplay(status) {
+    const statuses = {
+        'PENDING': 'Pendiente',
+        'PAID': 'Pagado',
+        'CANCELLED': 'Cancelado',
+        'REFUNDED': 'Reembolsado'
+    };
+    return statuses[status] || status;
+}
+
+function renderIncomeEvolutionChart(data) {
+    // 1. Validar datos
+    if (!data.ingresos_mensuales || !Array.isArray(data.ingresos_mensuales) || data.ingresos_mensuales.length === 0) {
+        console.warn('No hay datos para graficar evolución de ingresos');
+        return;
+    }
+    // 2. Preparar etiquetas y datos
+    const monthNames = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+    const labels = data.ingresos_mensuales.map(x => {
+        if (!x.month) return '';
+        const dateObj = new Date(x.month);
+        return monthNames[dateObj.getUTCMonth()] + ' ' + dateObj.getUTCFullYear();
+    });
+    const values = data.ingresos_mensuales.map(x => Number(x.total));
+
+    // 3. Destruir gráfico anterior si existe
+    destroyIfExists(incomeChart);
+
+    // 4. Renderizar gráfico
+    const ctx = document.getElementById('incomeChart').getContext('2d');
+    incomeChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Ingresos Mensuales',
+                data: values,
+                borderColor: '#28a745',
+                backgroundColor: 'rgba(40, 167, 69, 0.1)',
+                tension: 0.4,
+                fill: true
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { position: 'top' } },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        callback: function(value) { return '$' + value.toLocaleString('es-AR'); }
+                    }
+                }
+            }
+        }
+    });
+}
+
+async function renderIncomeAnalysisCharts() {
+    try {
+        document.querySelectorAll('.loading').forEach(el => el.style.display = 'flex');
+        const data = await fetchIncomeData();
+        document.querySelectorAll('.loading').forEach(el => el.style.display = 'none');
+
+        // Actualiza los KPIs
+        const kpiCards = document.querySelectorAll('.kpi-card .kpi-value');
+        kpiCards[0].textContent = '$' + (data.stats.total_ingresos || 0).toLocaleString('es-AR');
+        kpiCards[1].textContent = '$' + (data.stats.promedio_diario || 0).toLocaleString('es-AR');
+        kpiCards[2].textContent = '$' + (data.stats.proyeccion || 0).toLocaleString('es-AR');
+        kpiCards[3].textContent = data.stats.num_transacciones || 0;
+
+        // Actualizar indicadores de cambio porcentual
+        const kpiChanges = document.querySelectorAll('.kpi-change');
+        if (data.stats.cambio_porcentual !== undefined) {
+            const cambio = data.stats.cambio_porcentual;
+            const cambioText = cambio >= 0 ? `+${cambio}%` : `${cambio}%`;
+            const cambioClass = cambio >= 0 ? 'positive' : 'negative';
+            
+            kpiChanges[0].textContent = `${cambioText} vs mes anterior`;
+            kpiChanges[0].className = `kpi-change ${cambioClass}`;
+        }
+
+        // Actualizar proyecciones con datos reales
+        if (data.proyecciones) {
+            const projectionItems = document.querySelectorAll('.projection-item .projection-value');
+            projectionItems[0].textContent = '$' + (data.proyecciones.proximo_mes || 0).toLocaleString('es-AR');
+            // Ocultar/mostrar advertencia según confiabilidad
+            const warning = document.querySelector('.projection-warning');
+            if (data.stats.confiabilidad === 'BAJA' || data.stats.confiabilidad === 'SIN_DATOS') {
+                warning.style.display = 'block';
+            } else {
+                warning.style.display = 'none';
+            }
+        }
+
+        // Tendencia mensual (línea)
+        console.log('ingresos_mensuales:', data.ingresos_mensuales);
+        const monthNames = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+        const monthlyLabels = data.ingresos_mensuales.map(x => {
+            if (!x.month) return '';
+            const dateObj = new Date(x.month);
+            return monthNames[dateObj.getUTCMonth()] + ' ' + dateObj.getUTCFullYear();
+        });
+        const monthlyData = data.ingresos_mensuales.map(x => Number(x.total));
+        // Solo graficar si hay datos válidos
+        if (monthlyLabels.length > 0 && monthlyData.some(val => !isNaN(val))) {
+            destroyIfExists(monthlyTrendChart);
+            const monthlyTrendCtx = document.getElementById('monthlyTrendChart').getContext('2d');
+            monthlyTrendChart = new Chart(monthlyTrendCtx, {
+                type: 'line',
+                data: {
+                    labels: monthlyLabels,
+                    datasets: [{
+                        label: 'Ingresos Mensuales',
+                        data: monthlyData,
+                        borderColor: '#28a745',
+                        backgroundColor: 'rgba(40, 167, 69, 0.1)',
+                        tension: 0.4,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: 'top' } },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value) { return '$' + value.toLocaleString('es-AR'); }
+                            }
+                        }
+                    }
+                }
+            });
+        } else {
+            console.warn('No hay datos válidos para graficar la tendencia mensual de ingresos.');
+        }
+
+        // Gráfico de distribución por unidad de negocio
+        const unitLabels = data.ingresos_por_unidad.map(x => x.business_unit);
+        const unitData = data.ingresos_por_unidad.map(x => x.total);
+        destroyIfExists(unitChart);
+        const unitCtx = document.getElementById('unitChart').getContext('2d');
+        unitChart = new Chart(unitCtx, {
+            type: 'doughnut',
+            data: {
+                labels: unitLabels,
+                datasets: [{
+                    data: unitData,
+                    backgroundColor: ['#28a745', '#007bff', '#ffc107', '#6c757d', '#17a2b8', '#fd7e14', '#b39ddb', '#ffb74d', '#81c784', '#e57373']
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            padding: 10,
+                            usePointStyle: true
+                        }
+                    }
+                }
+            }
+        });
+
+        // Gráfico de comparación mensual (usando datos de estado de pago)
+        const comparisonLabels = data.ingresos_por_estado.map(x => getPaymentStatusDisplay(x.payment_status));
+        const comparisonData = data.ingresos_por_estado.map(x => x.total);
+        
+        destroyIfExists(comparisonChart);
+        const comparisonCtx = document.getElementById('comparisonChart').getContext('2d');
+        comparisonChart = new Chart(comparisonCtx, {
+            type: 'radar',
+            data: {
+                labels: comparisonLabels,
+                datasets: [{
+                    label: 'Ingresos por Estado',
+                    data: comparisonData,
+                    borderColor: '#28a745',
+                    backgroundColor: 'rgba(40, 167, 69, 0.2)',
+                    pointBackgroundColor: '#28a745'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { position: 'top' } },
+                scales: {
+                    r: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value) { return '$' + (value / 1000) + 'k'; }
+                        }
+                    }
+                }
+            }
+        });
+
+        // Gráfico de evolución de ingresos
+        renderIncomeEvolutionChart(data);
+    } catch (e) {
+        console.error('Error al renderizar los gráficos:', e);
+    }
+}
+
+document.querySelector('.filters-grid').addEventListener('submit', function(e) {
+    e.preventDefault();
+    renderIncomeAnalysisCharts();
+});
+
+function waitForChartJsAndRenderIncome() {
+    if (window.Chart && typeof window.Chart === 'function') {
+        renderIncomeAnalysisCharts();
+    } else {
+        setTimeout(waitForChartJsAndRenderIncome, 50);
+    }
+}
+
+document.addEventListener('DOMContentLoaded', waitForChartJsAndRenderIncome);
+</script>
+{% endblock %} 

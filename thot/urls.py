@@ -15,14 +15,14 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.conf import settings
-from django.contrib import admin
 from django.urls import path
 from django.views.static import serve
 from django.views.generic import RedirectView
+from thot.admin import custom_admin_site
 
 urlpatterns = [
     path('', RedirectView.as_view(url='/panel/login/', permanent=True)),
-    path('panel/', admin.site.urls),
+    path('panel/', custom_admin_site.urls),
 
     # Servir archivos de medios incluso en producción
     path('media/<path:path>', serve, {'document_root': settings.MEDIA_ROOT}),

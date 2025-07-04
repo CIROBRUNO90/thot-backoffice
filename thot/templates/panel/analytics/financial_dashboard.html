@@ -1,0 +1,415 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+
+{% block title %}Dashboard Financiero - {{ site_title|default:_('Django site admin') }}{% endblock %}
+
+{% block extrahead %}
+    {{ block.super }}
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js" defer></script>
+    <style>
+        .dashboard-container {
+            padding: 1rem;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        .filters-section {
+            background: #fff;
+            border: 1px solid #e1e5e9;
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+        }
+        
+        .filters-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            align-items: end;
+        }
+        
+        .filter-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: #222;
+        }
+        
+        .filter-group select,
+        .filter-group input {
+            width: 100%;
+            min-width: 160px;
+            padding: 0.5rem 1.2rem 0.5rem 0.5rem;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 0.95rem;
+            background: #fff;
+            box-sizing: border-box;
+        }
+        
+        .filter-group select {
+            appearance: none;
+            background-image: url('data:image/svg+xml;utf8,<svg fill="%23666" height="16" viewBox="0 0 24 24" width="16" xmlns="http://www.w3.org/2000/svg"><path d="M7 10l5 5 5-5z"/></svg>');
+            background-repeat: no-repeat;
+            background-position: right 0.7rem center;
+            background-size: 1.2em;
+        }
+        
+        .filter-btn {
+            background: #1976d2;
+            color: #fff;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.97rem;
+            font-weight: 500;
+            transition: background 0.2s;
+        }
+        
+        .filter-btn:hover {
+            background: #0d47a1;
+        }
+        
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+        
+        .metric-card {
+            background: #fff;
+            border: 1px solid #e1e5e9;
+            border-radius: 8px;
+            padding: 1.5rem;
+            text-align: center;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+        }
+        
+        .metric-value {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #1976d2;
+            margin-bottom: 0.5rem;
+        }
+        
+        .metric-label {
+            color: #555;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .charts-grid-vertical {
+            display: flex;
+            flex-direction: column;
+            gap: 2rem;
+            width: 100%;
+        }
+        
+        .chart-container {
+            background: #fff;
+            border: 1px solid #e1e5e9;
+            border-radius: 8px;
+            padding: 1.5rem;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+            width: 100%;
+            min-width: 0;
+            margin: 0 auto;
+        }
+        
+        .chart-container .chart-wrapper {
+            width: 100%;
+            height: 400px;
+            display: flex;
+            flex-direction: row;
+            align-items: stretch;
+        }
+        
+        canvas#groupedStackedBarChart, canvas#monthlyChart {
+            flex: 1 1 0%;
+            min-width: 0;
+            width: 100% !important;
+            height: 100% !important;
+        }
+        
+        .chart-title {
+            margin: 0 0 1rem 0;
+            color: #222;
+            font-size: 1.1rem;
+        }
+        
+        .balance-positive {
+            color: #28a745;
+        }
+        
+        .balance-negative {
+            color: #dc3545;
+        }
+        
+        .back-link {
+            display: inline-block;
+            margin-bottom: 1rem;
+            color: #1976d2;
+            text-decoration: none;
+            font-weight: 500;
+        }
+        
+        .back-link:hover {
+            text-decoration: underline;
+        }
+        
+        .loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 300px;
+            color: #666;
+            font-style: italic;
+        }
+        
+        @media (max-width: 768px) {
+            .chart-container .chart-wrapper {
+                height: 300px;
+            }
+        }
+    </style>
+{% endblock %}
+
+{% block content %}
+<div class="dashboard-container">
+    <a href="/panel/analytics/" class="back-link">← Volver a Analítica</a>
+    
+    <h1>📊 Dashboard Financiero</h1>
+    
+    <!-- Filtros -->
+    <div class="filters-section">
+        <h3>Filtros</h3>
+        <form method="get" class="filters-grid">
+            <div class="filter-group">
+                <label for="date_from">Desde:</label>
+                <input type="date" id="date_from" name="date_from" value="{{ request.GET.date_from }}">
+            </div>
+            <div class="filter-group">
+                <label for="date_to">Hasta:</label>
+                <input type="date" id="date_to" name="date_to" value="{{ request.GET.date_to }}">
+            </div>
+            <div class="filter-group">
+                <button type="submit" class="filter-btn">Aplicar Filtros</button>
+            </div>
+        </form>
+    </div>
+    
+    <!-- Métricas principales -->
+    <div class="metrics-grid">
+        <div class="metric-card">
+            <div class="metric-value">$15,000</div>
+            <div class="metric-label">Gastos del Mes</div>
+        </div>
+        <div class="metric-card">
+            <div class="metric-value">$25,000</div>
+            <div class="metric-label">Ingresos del Mes</div>
+        </div>
+        <div class="metric-card">
+            <div class="metric-value balance-positive">$10,000</div>
+            <div class="metric-label">Balance del Mes</div>
+        </div>
+    </div>
+    
+    <!-- Gráficos -->
+    <div class="charts-grid-vertical">
+        <div class="chart-container">
+            <h3 class="chart-title">Ingresos y Gastos por Unidad de Negocio</h3>
+            <div class="chart-wrapper">
+                <div class="loading">Cargando gráfico...</div>
+                <canvas id="groupedStackedBarChart"></canvas>
+            </div>
+        </div>
+        <div class="chart-container">
+            <h3 class="chart-title">Evolución Mensual</h3>
+            <div class="chart-wrapper">
+                <div class="loading">Cargando gráfico...</div>
+                <canvas id="monthlyChart"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let groupedStackedBarChart, monthlyChart;
+
+async function fetchFinancialData() {
+    try {
+        const form = document.querySelector('.filters-grid');
+        const params = new URLSearchParams(new FormData(form));
+        const response = await fetch('/panel/analytics/dashboard/data/?' + params);
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        console.log('Datos financieros recibidos:', data);
+        return data;
+    } catch (error) {
+        console.error('Error al obtener datos financieros:', error);
+        return {
+            gastos_por_categoria: [],
+            evolucion_mensual: [],
+            stats: {
+                total_gastos: 0,
+                total_ingresos: 0,
+                balance: 0,
+                gastos_mes: 0,
+                ingresos_mes: 0,
+                balance_mes: 0
+            }
+        };
+    }
+}
+
+function destroyIfExists(chart) {
+    if (chart) {
+        chart.destroy();
+    }
+}
+
+async function renderFinancialDashboardCharts() {
+    try {
+        document.querySelectorAll('.loading').forEach(el => el.style.display = 'flex');
+        const data = await fetchFinancialData();
+        document.querySelectorAll('.loading').forEach(el => el.style.display = 'none');
+
+        // Actualizar métricas
+        const metricValues = document.querySelectorAll('.metric-value');
+        metricValues[0].textContent = '$' + (data.stats.gastos_mes || 0).toLocaleString('es-AR');
+        metricValues[1].textContent = '$' + (data.stats.ingresos_mes || 0).toLocaleString('es-AR');
+        const balanceValue = metricValues[2];
+        const balance = data.stats.balance_mes || 0;
+        balanceValue.textContent = '$' + balance.toLocaleString('es-AR');
+        balanceValue.className = `metric-value ${balance >= 0 ? 'balance-positive' : 'balance-negative'}`;
+
+        // Gráfico de barras agrupadas: Ingresos y Gastos por Unidad de Negocio
+        const unidades = data.unidades || [];
+        const tiposGasto = data.tipos_gasto || [];
+        const labels = unidades.map(x => x.unidad);
+        // Colores para tipos de gasto
+        const gastoColors = [
+            '#FFB3B3', '#FFDF91', '#FFD6E0', '#B3E0FF', '#B3FFB3', '#E0B3FF', '#FFB3E6', '#B3FFD6', '#FFF0B3', '#B3B3FF'
+        ];
+        // Datasets de gastos (apilados)
+        const gastoDatasets = tiposGasto.map((tipo, idx) => ({
+            label: tipo,
+            data: unidades.map(u => u.gastos_por_tipo[tipo] || 0),
+            backgroundColor: gastoColors[idx % gastoColors.length],
+            stack: 'Gastos'
+        }));
+        // Dataset de ingresos (no apilado con gastos)
+        const ingresosDataset = {
+            label: 'Ingresos',
+            data: unidades.map(u => u.ingresos || 0),
+            backgroundColor: 'rgba(54, 162, 235, 0.7)',
+            stack: 'Ingresos'
+        };
+        destroyIfExists(groupedStackedBarChart);
+        const ctx = document.getElementById('groupedStackedBarChart').getContext('2d');
+        groupedStackedBarChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [...gastoDatasets, ingresosDataset]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'left', align: 'start', labels: { boxWidth: 18, padding: 16 } }
+                },
+                scales: {
+                    x: {
+                        stacked: true,
+                        ticks: {
+                            autoSkip: false,
+                            maxRotation: 45,
+                            minRotation: 0
+                        }
+                    },
+                    y: {
+                        stacked: false,
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value) { return '$' + value.toLocaleString('es-AR'); }
+                        }
+                    }
+                }
+            }
+        });
+
+        // Gráfico de evolución mensual
+        const monthNames = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+        const monthlyLabels = data.evolucion_mensual.map(x => {
+            if (!x.mes) return '';
+            const dateObj = new Date(x.mes);
+            return monthNames[dateObj.getMonth()] + ' ' + dateObj.getFullYear();
+        });
+        const gastosData = data.evolucion_mensual.map(x => x.gastos);
+        const ingresosData = data.evolucion_mensual.map(x => x.ingresos);
+        destroyIfExists(monthlyChart);
+        const monthlyCtx = document.getElementById('monthlyChart').getContext('2d');
+        monthlyChart = new Chart(monthlyCtx, {
+            type: 'line',
+            data: {
+                labels: monthlyLabels,
+                datasets: [{
+                    label: 'Gastos',
+                    data: gastosData,
+                    borderColor: '#FF6384',
+                    backgroundColor: 'rgba(255, 99, 132, 0.1)',
+                    tension: 0.4
+                }, {
+                    label: 'Ingresos',
+                    data: ingresosData,
+                    borderColor: '#36A2EB',
+                    backgroundColor: 'rgba(54, 162, 235, 0.1)',
+                    tension: 0.4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'top' }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value) { return '$' + value.toLocaleString('es-AR'); }
+                        }
+                    }
+                }
+            }
+        });
+    } catch (e) {
+        console.error('Error al renderizar los gráficos financieros:', e);
+    }
+}
+
+document.querySelector('.filters-grid').addEventListener('submit', function(e) {
+    e.preventDefault();
+    renderFinancialDashboardCharts();
+});
+
+function waitForChartJsAndRenderFinancial() {
+    if (window.Chart && typeof window.Chart === 'function') {
+        renderFinancialDashboardCharts();
+    } else {
+        setTimeout(waitForChartJsAndRenderFinancial, 50);
+    }
+}
+
+document.addEventListener('DOMContentLoaded', waitForChartJsAndRenderFinancial);
+</script>
+{% endblock %} 
