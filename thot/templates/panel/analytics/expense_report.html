@@ -1,0 +1,421 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+
+{% block title %}Reporte de Gastos - {{ site_title|default:_('Django site admin') }}{% endblock %}
+
+{% block extrahead %}
+    {{ block.super }}
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js" defer></script>
+    <style>
+        .report-container {
+            padding: 1rem;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        .filters-section {
+            background: #fff;
+            border: 1px solid #e1e5e9;
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+        }
+        
+        .filters-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            align-items: end;
+        }
+        
+        .filter-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: #222;
+        }
+        
+        .filter-group select,
+        .filter-group input {
+            width: 100%;
+            min-width: 160px;
+            padding: 0.5rem 1.2rem 0.5rem 0.5rem;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 0.95rem;
+            background: #fff;
+            box-sizing: border-box;
+        }
+        
+        .filter-group select {
+            appearance: none;
+            background-image: url('data:image/svg+xml;utf8,<svg fill="%23666" height="16" viewBox="0 0 24 24" width="16" xmlns="http://www.w3.org/2000/svg"><path d="M7 10l5 5 5-5z"/></svg>');
+            background-repeat: no-repeat;
+            background-position: right 0.7rem center;
+            background-size: 1.2em;
+        }
+        
+        .filter-btn {
+            background: #1976d2;
+            color: #fff;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.97rem;
+            font-weight: 500;
+            transition: background 0.2s;
+        }
+        
+        .filter-btn:hover {
+            background: #0d47a1;
+        }
+        
+        .charts-section {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+        
+        .chart-container {
+            background: #fff;
+            border: 1px solid #e1e5e9;
+            border-radius: 8px;
+            padding: 1.5rem;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+            height: 400px;
+            position: relative;
+        }
+        
+        .chart-title {
+            margin: 0 0 1rem 0;
+            color: #222;
+            font-size: 1.1rem;
+        }
+        
+        .chart-wrapper {
+            position: relative;
+            height: 300px;
+            width: 100%;
+        }
+        
+        .back-link {
+            display: inline-block;
+            margin-bottom: 1rem;
+            color: #1976d2;
+            text-decoration: none;
+            font-weight: 500;
+        }
+        
+        .back-link:hover {
+            text-decoration: underline;
+        }
+        
+        .summary-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+        
+        .stat-card {
+            background: #fff;
+            border: 1px solid #e1e5e9;
+            border-radius: 8px;
+            padding: 1rem;
+            text-align: center;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+        }
+        
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #1976d2;
+        }
+        
+        .stat-label {
+            color: #555;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            margin-top: 0.5rem;
+        }
+        
+        .loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 300px;
+            color: #666;
+            font-style: italic;
+        }
+        
+        @media (max-width: 768px) {
+            .charts-section {
+                grid-template-columns: 1fr;
+            }
+            .chart-container {
+                height: 350px;
+            }
+            .chart-wrapper {
+                height: 250px;
+            }
+        }
+    </style>
+{% endblock %}
+
+{% block content %}
+<div class="report-container">
+    <a href="/panel/analytics/" class="back-link">← Volver a Analítica</a>
+    
+    <h1>📉 Reporte de Gastos</h1>
+    
+    <!-- Filtros -->
+    <div class="filters-section">
+        <h3>Filtros</h3>
+        <form method="get" class="filters-grid">
+            <div class="filter-group">
+                <label for="date_from">Desde:</label>
+                <input type="date" id="date_from" name="date_from" value="{{ request.GET.date_from }}">
+            </div>
+            <div class="filter-group">
+                <label for="date_to">Hasta:</label>
+                <input type="date" id="date_to" name="date_to" value="{{ request.GET.date_to }}">
+            </div>
+            <div class="filter-group">
+                <button type="submit" class="filter-btn">Aplicar Filtros</button>
+            </div>
+        </form>
+    </div>
+    
+    <!-- Estadísticas resumidas -->
+    <div class="summary-stats">
+        <div class="stat-card">
+            <div class="stat-value">$15,000</div>
+            <div class="stat-label">Total Gastos</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value">$3,750</div>
+            <div class="stat-label">Promedio Diario</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value">4</div>
+            <div class="stat-label">Categorías</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value">$6,000</div>
+            <div class="stat-label">Mayor Categoría</div>
+        </div>
+    </div>
+    
+    <!-- Gráficos -->
+    <div class="charts-section">
+        <div class="chart-container">
+            <h3 class="chart-title">Gastos por Categoría</h3>
+            <div class="chart-wrapper">
+                <div class="loading">Cargando gráfico...</div>
+                <canvas id="categoryChart"></canvas>
+            </div>
+        </div>
+        <div class="chart-container">
+            <h3 class="chart-title">Evolución Diaria</h3>
+            <div class="chart-wrapper">
+                <div class="loading">Cargando gráfico...</div>
+                <canvas id="dailyChart"></canvas>
+            </div>
+        </div>
+    </div>
+    
+    <div class="charts-section">
+        <div class="chart-container">
+            <h3 class="chart-title">Distribución Semanal</h3>
+            <div class="chart-wrapper">
+                <div class="loading">Cargando gráfico...</div>
+                <canvas id="weeklyChart"></canvas>
+            </div>
+        </div>
+        <div class="chart-container">
+            <h3 class="chart-title">Tendencia Mensual</h3>
+            <div class="chart-wrapper">
+                <div class="loading">Cargando gráfico...</div>
+                <canvas id="trendChart"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let categoryChart, dailyChart, weeklyChart, trendChart;
+
+async function fetchExpenseData() {
+    const form = document.querySelector('.filters-grid');
+    const params = new URLSearchParams(new FormData(form));
+    const response = await fetch('/panel/analytics/expense-report/data/?' + params);
+    return await response.json();
+}
+
+function destroyIfExists(chart) {
+    if (chart) {
+        chart.destroy();
+    }
+}
+
+async function renderExpenseReportCharts() {
+    try {
+        document.querySelectorAll('.loading').forEach(el => el.style.display = 'flex');
+        const data = await fetchExpenseData();
+        document.querySelectorAll('.loading').forEach(el => el.style.display = 'none');
+
+        // Actualiza las estadísticas resumidas
+        const statCards = document.querySelectorAll('.stat-card .stat-value');
+        statCards[0].textContent = '$' + (data.stats.total_gastos || 0).toLocaleString('es-AR');
+        statCards[1].textContent = '$' + (data.stats.promedio_diario || 0).toLocaleString('es-AR');
+        statCards[2].textContent = data.stats.num_categorias || 0;
+        statCards[3].textContent = '$' + (data.stats.mayor_categoria || 0).toLocaleString('es-AR');
+
+        // Gráfico de gastos por categoría
+        const categoryLabels = data.gastos_por_categoria.map(x => x.expense_type__name || 'Sin categoría');
+        const categoryData = data.gastos_por_categoria.map(x => x.total);
+        destroyIfExists(categoryChart);
+        const categoryCtx = document.getElementById('categoryChart').getContext('2d');
+        categoryChart = new Chart(categoryCtx, {
+            type: 'pie',
+            data: {
+                labels: categoryLabels,
+                datasets: [{
+                    data: categoryData,
+                    backgroundColor: ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#1976d2', '#8bc34a', '#ff9800', '#9c27b0']
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            padding: 10,
+                            usePointStyle: true
+                        }
+                    }
+                }
+            }
+        });
+
+        // Gráfico de evolución diaria
+        const dailyLabels = data.gastos_diarios.map(x => {
+            if (!x.day) return '';
+            const dateObj = new Date(x.day);
+            return dateObj.getUTCDate().toString().padStart(2, '0') + '/' +
+                   (dateObj.getUTCMonth() + 1).toString().padStart(2, '0');
+        });
+        const dailyData = data.gastos_diarios.map(x => x.total);
+        destroyIfExists(dailyChart);
+        const dailyCtx = document.getElementById('dailyChart').getContext('2d');
+        dailyChart = new Chart(dailyCtx, {
+            type: 'bar',
+            data: {
+                labels: dailyLabels,
+                datasets: [{
+                    label: 'Gastos Diarios',
+                    data: dailyData,
+                    backgroundColor: 'rgba(54, 162, 235, 0.8)',
+                    borderColor: '#36A2EB',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value) { return '$' + value.toLocaleString('es-AR'); }
+                        }
+                    }
+                }
+            }
+        });
+
+        // Gráfico de distribución semanal
+        const weeklyLabels = data.gastos_semanales.map(x => x.week ? 'Semana ' + (new Date(x.week).getWeek ? new Date(x.week).getWeek() : x.week) : '');
+        const weeklyData = data.gastos_semanales.map(x => x.total);
+        destroyIfExists(weeklyChart);
+        const weeklyCtx = document.getElementById('weeklyChart').getContext('2d');
+        weeklyChart = new Chart(weeklyCtx, {
+            type: 'doughnut',
+            data: {
+                labels: weeklyLabels,
+                datasets: [{
+                    data: weeklyData,
+                    backgroundColor: ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#1976d2', '#8bc34a', '#ff9800', '#9c27b0']
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            padding: 10,
+                            usePointStyle: true
+                        }
+                    }
+                }
+            }
+        });
+
+        // Gráfico de tendencia mensual
+        const monthNames = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+        const trendLabels = data.gastos_mensuales.map(x => x.month ? monthNames[new Date(x.month).getMonth()] + ' ' + new Date(x.month).getFullYear() : '');
+        const trendData = data.gastos_mensuales.map(x => x.total);
+        destroyIfExists(trendChart);
+        const trendCtx = document.getElementById('trendChart').getContext('2d');
+        trendChart = new Chart(trendCtx, {
+            type: 'line',
+            data: {
+                labels: trendLabels,
+                datasets: [{
+                    label: 'Gastos Mensuales',
+                    data: trendData,
+                    borderColor: '#FF6384',
+                    backgroundColor: 'rgba(255, 99, 132, 0.1)',
+                    tension: 0.4,
+                    fill: true
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value) { return '$' + value.toLocaleString('es-AR'); }
+                        }
+                    }
+                }
+            }
+        });
+    } catch (e) {
+        console.error('Error al renderizar los gráficos:', e);
+    }
+}
+
+document.querySelector('.filters-grid').addEventListener('submit', function(e) {
+    e.preventDefault();
+    renderExpenseReportCharts();
+});
+
+document.addEventListener('DOMContentLoaded', renderExpenseReportCharts);
+</script>
+{% endblock %} 
