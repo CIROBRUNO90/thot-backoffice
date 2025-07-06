@@ -219,7 +219,7 @@
             </div>
         </div>
         <div class="chart-container">
-            <h3 class="chart-title">Evolución Diaria</h3>
+            <h3 class="chart-title">Evolución Semanal</h3>
             <div class="chart-wrapper">
                 <div class="loading">Cargando gráfico...</div>
                 <canvas id="dailyChart"></canvas>
@@ -229,7 +229,7 @@
     
     <div class="charts-section">
         <div class="chart-container">
-            <h3 class="chart-title">Distribución Semanal</h3>
+            <h3 class="chart-title">Distribución Mensual</h3>
             <div class="chart-wrapper">
                 <div class="loading">Cargando gráfico...</div>
                 <canvas id="weeklyChart"></canvas>
@@ -303,23 +303,26 @@ async function renderExpenseReportCharts() {
             }
         });
 
-        // Gráfico de evolución diaria
-        const dailyLabels = data.gastos_diarios.map(x => {
-            if (!x.day) return '';
-            const dateObj = new Date(x.day);
-            return dateObj.getUTCDate().toString().padStart(2, '0') + '/' +
-                   (dateObj.getUTCMonth() + 1).toString().padStart(2, '0');
+        // Gráfico de evolución semanal (nuevo)
+        const weeklyLabels = data.gastos_semanales.map(x => {
+            if (!x.week) return '';
+            const start = new Date(x.week);
+            const end = new Date(start);
+            end.setDate(start.getDate() + 6);
+            const startStr = start.getUTCDate().toString().padStart(2, '0') + '/' + (start.getUTCMonth() + 1).toString().padStart(2, '0');
+            const endStr = end.getUTCDate().toString().padStart(2, '0') + '/' + (end.getUTCMonth() + 1).toString().padStart(2, '0');
+            return `${startStr} - ${endStr}`;
         });
-        const dailyData = data.gastos_diarios.map(x => x.total);
+        const weeklyData = data.gastos_semanales.map(x => x.total);
         destroyIfExists(dailyChart);
-        const dailyCtx = document.getElementById('dailyChart').getContext('2d');
-        dailyChart = new Chart(dailyCtx, {
+        const weeklyBarCtx = document.getElementById('dailyChart').getContext('2d');
+        dailyChart = new Chart(weeklyBarCtx, {
             type: 'bar',
             data: {
-                labels: dailyLabels,
+                labels: weeklyLabels,
                 datasets: [{
-                    label: 'Gastos Diarios',
-                    data: dailyData,
+                    label: 'Gastos Semanales',
+                    data: weeklyData,
                     backgroundColor: 'rgba(54, 162, 235, 0.8)',
                     borderColor: '#36A2EB',
                     borderWidth: 1
@@ -329,7 +332,16 @@ async function renderExpenseReportCharts() {
                 responsive: true,
                 maintainAspectRatio: false,
                 plugins: {
-                    legend: { display: false }
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const label = context.label || '';
+                                const value = context.parsed.y || 0;
+                                return `${label}: $${value.toLocaleString('es-AR')}`;
+                            }
+                        }
+                    }
                 },
                 scales: {
                     y: {
@@ -342,18 +354,19 @@ async function renderExpenseReportCharts() {
             }
         });
 
-        // Gráfico de distribución semanal
-        const weeklyLabels = data.gastos_semanales.map(x => x.week ? 'Semana ' + (new Date(x.week).getWeek ? new Date(x.week).getWeek() : x.week) : '');
-        const weeklyData = data.gastos_semanales.map(x => x.total);
+        // Gráfico de distribución mensual (nuevo)
+        const monthNames = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+        const monthlyLabels = data.gastos_mensuales.map(x => x.month ? monthNames[new Date(x.month).getMonth()] + ' ' + new Date(x.month).getFullYear() : '');
+        const monthlyData = data.gastos_mensuales.map(x => x.total);
         destroyIfExists(weeklyChart);
-        const weeklyCtx = document.getElementById('weeklyChart').getContext('2d');
-        weeklyChart = new Chart(weeklyCtx, {
+        const monthlyCtx = document.getElementById('weeklyChart').getContext('2d');
+        weeklyChart = new Chart(monthlyCtx, {
             type: 'doughnut',
             data: {
-                labels: weeklyLabels,
+                labels: monthlyLabels,
                 datasets: [{
-                    data: weeklyData,
-                    backgroundColor: ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#1976d2', '#8bc34a', '#ff9800', '#9c27b0']
+                    data: monthlyData,
+                    backgroundColor: ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#1976d2', '#8bc34a', '#ff9800', '#9c27b0', '#b39ddb', '#ffb74d', '#81c784', '#e57373']
                 }]
             },
             options: {
@@ -366,13 +379,21 @@ async function renderExpenseReportCharts() {
                             padding: 10,
                             usePointStyle: true
                         }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const label = context.label || '';
+                                const value = context.parsed || 0;
+                                return `${label}: $${value.toLocaleString('es-AR')}`;
+                            }
+                        }
                     }
                 }
             }
         });
 
         // Gráfico de tendencia mensual
-        const monthNames = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
         const trendLabels = data.gastos_mensuales.map(x => x.month ? monthNames[new Date(x.month).getMonth()] + ' ' + new Date(x.month).getFullYear() : '');
         const trendData = data.gastos_mensuales.map(x => x.total);
         destroyIfExists(trendChart);
