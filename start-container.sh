@@ -21,9 +21,6 @@ python manage.py migrate
 echo "Creating default admin user..."
 python manage.py shell -c "from django.contrib.auth.models import User; User.objects.create_superuser('admin', 'admin@example.com', 'admin') if not User.objects.filter(username='admin').exists() else None"
 
-echo "Generating test data..."
-python manage.py generate_test_data --clear-existing
-
 python manage.py runserver 0.0.0.0:9009
 # echo "Starting supervisord..."
 # exec /usr/bin/supervisord -n -c /etc/supervisor/conf.d/supervisord.conf
