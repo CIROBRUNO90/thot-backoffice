@@ -52,6 +52,7 @@ INSTALLED_APPS = [
     'rangefilter',
     'import_export',
     # Local apps
+    'thot',
     'expenses',
     'incomes',
     'products',

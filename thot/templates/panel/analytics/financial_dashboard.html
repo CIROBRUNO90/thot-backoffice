@@ -294,7 +294,8 @@ async function renderFinancialDashboardCharts() {
         // Gráfico de barras agrupadas: Ingresos y Gastos por Unidad de Negocio
         const unidades = data.unidades || [];
         const tiposGasto = data.tipos_gasto || [];
-        const labels = unidades.map(x => x.unidad);
+        const labels = unidades.map((x, idx) => (idx + 1).toString()); // Usar solo números como etiquetas
+        const unidadNombres = unidades.map(x => x.unidad); // Nombres completos para el tooltip
         // Colores para tipos de gasto
         const gastoColors = [
             '#FFB3B3', '#FFDF91', '#FFD6E0', '#B3E0FF', '#B3FFB3', '#E0B3FF', '#FFB3E6', '#B3FFD6', '#FFF0B3', '#B3B3FF'
@@ -325,15 +326,26 @@ async function renderFinancialDashboardCharts() {
                 responsive: true,
                 maintainAspectRatio: false,
                 plugins: {
-                    legend: { position: 'left', align: 'start', labels: { boxWidth: 18, padding: 16 } }
+                    legend: { position: 'left', align: 'start', labels: { boxWidth: 18, padding: 16 } },
+                    tooltip: {
+                        callbacks: {
+                            title: function(context) {
+                                // Mostrar el nombre completo de la unidad de negocio
+                                const idx = context[0].dataIndex;
+                                return unidadNombres[idx] || '';
+                            },
+                            label: function(context) {
+                                const value = context.parsed.y || 0;
+                                return `${context.dataset.label}: $${value.toLocaleString('es-AR')}`;
+                            }
+                        }
+                    }
                 },
                 scales: {
                     x: {
                         stacked: true,
                         ticks: {
-                            autoSkip: false,
-                            maxRotation: 45,
-                            minRotation: 0
+                            display: false // Oculta las etiquetas del eje X
                         }
                     },
                     y: {

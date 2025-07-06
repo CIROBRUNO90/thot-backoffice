@@ -590,10 +590,15 @@ async function renderIncomeAnalysisCharts() {
                 maintainAspectRatio: false,
                 plugins: {
                     legend: {
-                        position: 'bottom',
-                        labels: {
-                            padding: 10,
-                            usePointStyle: true
+                        display: false
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const label = context.label || '';
+                                const value = context.parsed || 0;
+                                return `${label}: $${value.toLocaleString('es-AR')}`;
+                            }
                         }
                     }
                 }
